@@ -90,46 +90,13 @@ class UniversalCompatibilityPatcher:
         source_data_list: List[Dict[str, Any]],
         file_path: str
     ) -> Dict[str, Any]:
-        """Patch entity files to ensure critical sections are present."""
-        if 'minecraft:entity' not in merged_data:
-            return merged_data
-        
-        description = merged_data['minecraft:entity'].get('description', {})
-        
-        # Check for missing critical sections
-        missing_sections = self.CRITICAL_ENTITY_SECTIONS - set(description.keys())
-        
-        if missing_sections:
-            _logger.warning(f"Entity file missing critical sections: {missing_sections} in {file_path}")
-            
-            # Try to restore from source files
-            for source_data in source_data_list:
-                if 'minecraft:entity' in source_data:
-                    source_desc = source_data['minecraft:entity'].get('description', {})
-                    
-                    for section in missing_sections:
-                        if section in source_desc:
-                            if section not in description:
-                                # Restore entire section
-                                description[section] = source_desc[section]
-                                self.patches_applied.append({
-                                    'file': file_path,
-                                    'type': 'restored_section',
-                                    'section': section,
-                                    'source': 'original_pack'
-                                })
-                                _logger.info(f"Restored {section} section in {file_path}")
-                            elif isinstance(description[section], dict) and isinstance(source_desc[section], dict):
-                                # Merge dictionaries
-                                description[section] = self._deep_merge(description[section], source_desc[section])
-                                self.patches_applied.append({
-                                    'file': file_path,
-                                    'type': 'merged_section',
-                                    'section': section,
-                                    'source': 'original_pack'
-                                })
-        
-        merged_data['minecraft:entity']['description'] = description
+        """Patch BP entity files.
+
+        Note: render_controllers/materials/textures/geometry are RP-side
+        concerns (minecraft:client_entity), NOT BP entity concerns, so we do
+        not flag them as missing here.  See _patch_client_entity_file for the
+        RP-side critical-section check.
+        """
         return merged_data
     
     def _patch_client_entity_file(
@@ -148,7 +115,7 @@ class UniversalCompatibilityPatcher:
         missing_sections = self.CRITICAL_ENTITY_SECTIONS - set(description.keys())
         
         if missing_sections:
-            _logger.warning(f"Client entity file missing critical sections: {missing_sections} in {file_path}")
+            _logger.debug(f"Client entity file missing critical sections: {missing_sections} in {file_path}")
             
             # Try to restore from source files
             for source_data in source_data_list:

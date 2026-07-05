@@ -86,42 +86,25 @@ class IdentifierManager:
 
     def _extract_entity_identifiers(self, pack_zip, item_name):
         """Extract entity identifiers from an entity JSON file."""
-        identifiers = set()
-        try:
-            with pack_zip.open(item_name) as f:
-                content = f.read().decode('utf-8', errors='ignore')
-                content = _re.sub(r'//.*?$|/\*.*?\*/', '', content,
-                                  flags=_re.MULTILINE | _re.DOTALL)
-                data = _json.loads(content)
-                for key in ['minecraft:entity', 'minecraft:client_entity']:
-                    if key in data:
-                        desc = data[key].get('description', {})
-                        eid = desc.get('identifier')
-                        if eid and eid != 'minecraft:player':
-                            identifiers.add(eid)
-        except Exception:
-            pass
-        return identifiers
+        return self._extract_id_from_json_keys(
+            pack_zip, item_name,
+            keys=['minecraft:entity', 'minecraft:client_entity'],
+            id_field='identifier', exclude={'minecraft:player'})
 
     def _extract_item_identifiers(self, pack_zip, item_name):
         """Extract item identifiers from an item JSON file."""
-        identifiers = set()
-        try:
-            with pack_zip.open(item_name) as f:
-                content = f.read().decode('utf-8', errors='ignore')
-                content = _re.sub(r'//.*?$|/\*.*?\*/', '', content,
-                                  flags=_re.MULTILINE | _re.DOTALL)
-                data = _json.loads(content)
-                if 'minecraft:item' in data:
-                    desc = data['minecraft:item'].get('description', {})
-                    iid = desc.get('identifier')
-                    if iid:
-                        identifiers.add(iid)
-        except Exception:
-            pass
-        return identifiers
+        return self._extract_id_from_json_keys(
+            pack_zip, item_name,
+            keys=['minecraft:item'], id_field='identifier')
 
     def _extract_block_identifiers(self, pack_zip, item_name):
+        """Extract block identifiers from a block JSON file."""
+        return self._extract_id_from_json_keys(
+            pack_zip, item_name,
+            keys=['minecraft:block'], id_field='identifier')
+
+    def _extract_id_from_json_keys(self, pack_zip, item_name, keys, id_field='identifier', exclude=None):
+        """Extract identifiers from a JSON file by traversing specific top-level keys."""
         identifiers = set()
         try:
             with pack_zip.open(item_name) as f:
@@ -129,11 +112,12 @@ class IdentifierManager:
                 content = _re.sub(r'//.*?$|/\*.*?\*/', '', content,
                                   flags=_re.MULTILINE | _re.DOTALL)
                 data = _json.loads(content)
-                if 'minecraft:block' in data:
-                    desc = data['minecraft:block'].get('description', {})
-                    bid = desc.get('identifier')
-                    if bid:
-                        identifiers.add(bid)
+                for key in keys:
+                    if key in data:
+                        desc = data[key].get('description', {})
+                        val = desc.get(id_field)
+                        if val and (not exclude or val not in exclude):
+                            identifiers.add(val)
         except Exception:
             pass
         return identifiers
@@ -171,21 +155,15 @@ class IdentifierManager:
         return identifiers
 
     def _extract_animation_controller_identifiers(self, pack_zip, item_name):
-        identifiers = set()
-        try:
-            with pack_zip.open(item_name) as f:
-                content = f.read().decode('utf-8', errors='ignore')
-                content = _re.sub(r'//.*?$|/\*.*?\*/', '', content,
-                                  flags=_re.MULTILINE | _re.DOTALL)
-                data = _json.loads(content)
-                for key in data:
-                    if ':' in key:
-                        identifiers.add(key)
-        except Exception:
-            pass
-        return identifiers
+        """Extract identifiers from an animation controller JSON file."""
+        return self._extract_keys_with_colon(pack_zip, item_name)
 
     def _extract_render_controller_identifiers(self, pack_zip, item_name):
+        """Extract identifiers from a render controller JSON file."""
+        return self._extract_keys_with_colon(pack_zip, item_name)
+
+    def _extract_keys_with_colon(self, pack_zip, item_name):
+        """Extract all top-level JSON keys containing ':' as identifiers."""
         identifiers = set()
         try:
             with pack_zip.open(item_name) as f:

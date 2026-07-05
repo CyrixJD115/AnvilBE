@@ -34,6 +34,14 @@ def main():
         if icon_path.exists():
             app.setWindowIcon(QIcon(str(icon_path)))
 
+        # Load bundled fonts (DepartureMono Nerd Font) so they work
+        # without being installed on the system.
+        from PySide6.QtGui import QFontDatabase
+        fonts_dir = _project_root / "src" / "theme" / "fonts"
+        if fonts_dir.is_dir():
+            for font_file in fonts_dir.glob("*.[ot]tf"):
+                QFontDatabase.addApplicationFont(str(font_file))
+
         # Create and show main window
         window = AutoBEWindow()
         window.show()

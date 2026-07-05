@@ -5,6 +5,7 @@ and communicates progress via Qt signals.
 import logging as _logging
 import traceback
 from PySide6.QtCore import QThread, Signal
+from src.core.i18n import _tr
 
 
 class MergeWorkerThread(QThread):
@@ -43,129 +44,137 @@ class MergeWorkerThread(QThread):
         try:
             # Step 1: Validate files
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(5)
-            self.status_update.emit("Validating files...")
+            self.status_update.emit(_tr("progress.validating", "Validating files..."))
             if not self.app._validate_files(show_gui=False):
-                self.finished.emit(False, "Validation failed")
+                self.finished.emit(False, _tr("status.validation_failed", "Validation failed"))
                 return
 
             # Step 2: Extract and store highest versions
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(10)
-            self.status_update.emit("Extracting version information...")
+            self.status_update.emit(_tr("progress.extracting_versions", "Extracting version information..."))
             self.app._extract_and_store_highest_versions()
 
             # Step 3: Check compatibility
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(15)
-            self.status_update.emit("Checking compatibility...")
+            self.status_update.emit(_tr("progress.checking_compat", "Checking compatibility..."))
             self.app._check_compatibility(show_gui=False)
 
             # Step 4: Process packs (main merging pipeline)
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(25)
-            self.status_update.emit("Processing packs...")
+            self.status_update.emit(_tr("progress.processing_packs", "Processing packs..."))
             self.app._process_packs(self.files, self.output_dir)
 
             # Step 5: Delete manifest files from intermediate zips
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(40)
-            self.status_update.emit("Cleaning up manifests...")
+            self.status_update.emit(_tr("progress.cleaning_manifests", "Cleaning up manifests..."))
             self.app._delete_manifest_files()
 
             # Step 6: Create manifest
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(50)
-            self.status_update.emit("Creating manifests...")
+            self.status_update.emit(_tr("progress.creating_manifests", "Creating manifests..."))
             self.app._create_manifest()
 
             # Step 7: Move tick and delete functions
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(55)
-            self.status_update.emit("Moving tick and delete functions...")
+            self.status_update.emit(_tr("progress.moving_tick_delete", "Moving tick and delete functions..."))
             self.app._move_tick_and_delete_functions()
 
             # Step 8: Process script files
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(65)
-            self.status_update.emit("Processing script files...")
+            self.status_update.emit(_tr("progress.processing_scripts", "Processing script files..."))
             self.app._process_script_files(self.files)
 
             # Step 9: Move and cleanup
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(70)
-            self.status_update.emit("Moving and cleaning up...")
+            self.status_update.emit(_tr("progress.moving_cleanup", "Moving and cleaning up..."))
             self.app._move_and_cleanup()
 
             # Step 10: Update behavior pack with scripts
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(75)
-            self.status_update.emit("Updating behavior pack...")
+            self.status_update.emit(_tr("progress.updating_bp", "Updating behavior pack..."))
             self.app._update_behavior_pack()
 
             # Step 11: Merge flipbook textures
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(80)
-            self.status_update.emit("Merging flipbook textures...")
+            self.status_update.emit(_tr("progress.merging_flipbook", "Merging flipbook textures..."))
             self.app._merge_flipbook_textures(self.files)
 
             # Step 12: Merge textures list
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(85)
-            self.status_update.emit("Merging textures list...")
+            self.status_update.emit(_tr("progress.merging_textures_list", "Merging textures list..."))
             self.app._merge_textures_list(self.files)
 
             # Step 13: Extract and delete zip files
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(90)
-            self.status_update.emit("Extracting texture files...")
+            self.status_update.emit(_tr("progress.extracting_textures", "Extracting texture files..."))
             self.app._extract_and_delete_zip_files()
 
             # Step 14: Move to resource pack
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(95)
-            self.status_update.emit("Updating resource pack...")
+            self.status_update.emit(_tr("progress.updating_rp", "Updating resource pack..."))
             self.app._move_to_resource_pack()
 
             # Step 15: Final cleanup
             if self._cancel_requested:
-                self.finished.emit(False, "Cancelled")
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
                 return
             self.progress_update.emit(98)
-            self.status_update.emit("Final cleanup...")
+            self.status_update.emit(_tr("progress.final_cleanup", "Final cleanup..."))
             self.app._final_cleanup()
 
+            # Step 16: Package output into selected format
+            if self._cancel_requested:
+                self.finished.emit(False, _tr("status.cancelled", "Cancelled"))
+                return
+            self.progress_update.emit(99)
+            self.status_update.emit(_tr("progress.packaging", "Packaging output..."))
+            self.app._package_output()
+
             self.progress_update.emit(100)
-            self.status_update.emit("Complete!")
-            self.finished.emit(True, "All packs merged successfully!")
+            self.status_update.emit(_tr("status.complete", "Complete!"))
+            self.finished.emit(True, _tr("status.merged_success", "All packs merged successfully!"))
 
         except Exception as e:
             _logging.error(f"Error during processing: {e}", exc_info=True)

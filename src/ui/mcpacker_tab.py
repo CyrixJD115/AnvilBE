@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLineEdit, QLabel, QComboBox
 )
 from PySide6.QtCore import Qt
+from src.core.i18n import _tr
 
 
 class MCPackerTab(QWidget):
@@ -17,6 +18,7 @@ class MCPackerTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._setup_ui()
+        self.retranslate_ui()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -24,58 +26,59 @@ class MCPackerTab(QWidget):
         layout.setSpacing(12)
 
         # ── Controls group ───────────────────────────────────────────
-        controls_group = QGroupBox("Controls")
-        controls_layout = QVBoxLayout(controls_group)
+        self._controls_group = QGroupBox("")
+        controls_layout = QVBoxLayout(self._controls_group)
 
         # Mode selection
         mode_row = QHBoxLayout()
-        mode_label = QLabel("Mode:")
+        self._mode_label = QLabel()
         self._mode_combo = QComboBox()
-        self._mode_combo.addItems(["Pack", "Unpack"])
-        mode_row.addWidget(mode_label)
+        self._mode_combo.addItem("", "pack")
+        self._mode_combo.addItem("", "unpack")
+        mode_row.addWidget(self._mode_label)
         mode_row.addWidget(self._mode_combo, 1)
         controls_layout.addLayout(mode_row)
 
-        layout.addWidget(controls_group)
+        layout.addWidget(self._controls_group)
 
         # ── Files group ──────────────────────────────────────────────
-        files_group = QGroupBox("Files / Folders")
-        files_layout = QVBoxLayout(files_group)
+        self._files_group = QGroupBox("")
+        files_layout = QVBoxLayout(self._files_group)
 
         self._file_list = QListWidget()
         self._file_list.setMinimumHeight(200)
         files_layout.addWidget(self._file_list)
 
         btn_row = QHBoxLayout()
-        self._btn_add = QPushButton("Add Folder")
-        self._btn_remove = QPushButton("Remove Selected")
+        self._btn_add = QPushButton()
+        self._btn_remove = QPushButton()
         self._btn_remove.setProperty("class", "danger")
         btn_row.addWidget(self._btn_add)
         btn_row.addWidget(self._btn_remove)
         btn_row.addStretch()
         files_layout.addLayout(btn_row)
 
-        layout.addWidget(files_group)
+        layout.addWidget(self._files_group)
 
         # ── Output group ─────────────────────────────────────────────
-        output_group = QGroupBox("Output")
-        output_layout = QHBoxLayout(output_group)
+        self._output_group = QGroupBox("")
+        output_layout = QHBoxLayout(self._output_group)
 
-        out_label = QLabel("Output:")
+        self._out_label = QLabel()
         self._output_path = QLineEdit()
-        self._output_path.setPlaceholderText("Output directory...")
-        self._btn_browse = QPushButton("Browse...")
+        self._output_path.setPlaceholderText("")
+        self._btn_browse = QPushButton()
 
-        output_layout.addWidget(out_label)
+        output_layout.addWidget(self._out_label)
         output_layout.addWidget(self._output_path, 1)
         output_layout.addWidget(self._btn_browse)
 
-        layout.addWidget(output_group)
+        layout.addWidget(self._output_group)
 
         # ── Action buttons ───────────────────────────────────────────
         action_row = QHBoxLayout()
         action_row.addStretch()
-        self._btn_start = QPushButton("Start")
+        self._btn_start = QPushButton()
         self._btn_start.setProperty("class", "primary")
         action_row.addWidget(self._btn_start)
         layout.addLayout(action_row)
@@ -88,6 +91,20 @@ class MCPackerTab(QWidget):
         layout.addWidget(self._status_label)
 
         layout.addStretch()
+
+    def retranslate_ui(self):
+        self._controls_group.setTitle(_tr("mcpacker.group.controls", "Controls"))
+        self._mode_label.setText(_tr("common.mode", "Mode:"))
+        self._mode_combo.setItemText(0, _tr("mcpacker.mode.pack", "Pack"))
+        self._mode_combo.setItemText(1, _tr("mcpacker.mode.unpack", "Unpack"))
+        self._files_group.setTitle(_tr("mcpacker.group.files", "Files / Folders"))
+        self._btn_add.setText(_tr("mcpacker.add_folder", "Add Folder"))
+        self._btn_remove.setText(_tr("merger.remove_selected", "Remove Selected"))
+        self._output_group.setTitle(_tr("merger.group.output", "Output"))
+        self._out_label.setText(_tr("mcpacker.output", "Output:"))
+        self._output_path.setPlaceholderText(_tr("mcpacker.output_ph", "Output directory..."))
+        self._btn_browse.setText(_tr("common.browse", "Browse..."))
+        self._btn_start.setText(_tr("common.start", "Start"))
 
     # ── Public accessors ─────────────────────────────────────────────
 

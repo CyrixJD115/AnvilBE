@@ -56,15 +56,34 @@ def validate_pack_folder(folder_path):
         return False, f"Error validating pack: {e}"
 
 
-def get_pack_manifest_data(file_path):
-    """Extract and parse manifest.json from a pack file (.mcpack/.mcaddon/.zip)."""
+def _try_json_loads(content: str):
+    """Parse JSON string, with json5 fallback."""
+    cleaned = _re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=_re.MULTILINE | _re.DOTALL)
     try:
+        return _json.loads(cleaned)
+    except _json.JSONDecodeError:
+        try:
+            import json5
+            return json5.loads(cleaned)
+        except Exception:
+            return None
+
+
+def get_pack_manifest_data(file_path):
+    """Extract and parse manifest.json from a pack file or folder."""
+    try:
+        if _os.path.isdir(file_path):
+            manifest_path = _os.path.join(file_path, 'manifest.json')
+            if _os.path.isfile(manifest_path):
+                content = read_text_file_utf8_strip_bom(manifest_path)
+                return _try_json_loads(content)
+            return None
+
         with _zipfile.ZipFile(file_path, 'r') as pack_zip:
             manifest_path = None
             for name in pack_zip.namelist():
                 name_lower = name.lower()
                 if name_lower == 'manifest.json' or name_lower.endswith('/manifest.json'):
-                    # Prefer root manifest
                     if name_lower == 'manifest.json':
                         manifest_path = name
                         break
@@ -74,15 +93,7 @@ def get_pack_manifest_data(file_path):
             if manifest_path:
                 with pack_zip.open(manifest_path) as f:
                     content = f.read().decode('utf-8', errors='ignore')
-                    content = _re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=_re.MULTILINE | _re.DOTALL)
-                    try:
-                        return _json.loads(content)
-                    except _json.JSONDecodeError:
-                        try:
-                            import json5
-                            return json5.loads(content)
-                        except Exception:
-                            return None
+                    return _try_json_loads(content)
     except Exception as e:
         _logging.warning(f"Error reading manifest from {file_path}: {e}")
     return None

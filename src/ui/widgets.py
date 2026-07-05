@@ -2,9 +2,10 @@
 Custom widgets for Anvil-MC.
 Includes themed status indicators and reusable UI components.
 """
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QFrame
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame, QListWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent
+from src.core.i18n import _tr
 
 
 class AchievementIndicator(QWidget):
@@ -19,7 +20,7 @@ class AchievementIndicator(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(8)
 
-        self._label = QLabel("Achievements:")
+        self._label = QLabel()
         self._label.setStyleSheet("color: #C6C6C6; font-weight: 600;")
         self._layout.addWidget(self._label)
 
@@ -27,33 +28,42 @@ class AchievementIndicator(QWidget):
         self._status_icon.setStyleSheet("color: #FFFF55; font-size: 16px;")
         self._layout.addWidget(self._status_icon)
 
-        self._status_text = QLabel("Unknown")
+        self._status_text = QLabel()
         self._status_text.setStyleSheet("color: #FFFF55;")
         self._layout.addWidget(self._status_text)
 
         self._layout.addStretch()
 
+        self._state = "unknown"
+        self.retranslate_ui()
         self.set_status_unknown()
+
+    def retranslate_ui(self):
+        self._label.setText(_tr("achievements.label", "Achievements:"))
+        getattr(self, f"set_status_{self._state}", self.set_status_unknown)()
 
     def set_status_unknown(self):
         """Set status to unknown/loading."""
+        self._state = "unknown"
         self._status_icon.setText("⏳")
         self._status_icon.setStyleSheet("color: #FFFF55; font-size: 16px;")
-        self._status_text.setText("Checking...")
+        self._status_text.setText(_tr("achievements.checking", "Checking..."))
         self._status_text.setStyleSheet("color: #FFFF55;")
 
     def set_status_compatible(self):
         """Set status to achievement-compatible."""
+        self._state = "compatible"
         self._status_icon.setText("✅")
         self._status_icon.setStyleSheet("color: #55FF55; font-size: 16px;")
-        self._status_text.setText("Compatible")
+        self._status_text.setText(_tr("achievements.compatible", "Compatible"))
         self._status_text.setStyleSheet("color: #55FF55;")
 
     def set_status_incompatible(self):
         """Set status to achievement-incompatible."""
+        self._state = "incompatible"
         self._status_icon.setText("❌")
         self._status_icon.setStyleSheet("color: #FF5555; font-size: 16px;")
-        self._status_text.setText("Incompatible")
+        self._status_text.setText(_tr("achievements.incompatible", "Incompatible"))
         self._status_text.setStyleSheet("color: #FF5555;")
 
     def set_status(self, compatible: bool):
@@ -81,3 +91,31 @@ class StatusLabel(QLabel):
         super().__init__(text, parent)
         self.setProperty("class", "status-mode")
         self.setStyleSheet("color: #5CE3E6; font-weight: 600;")
+
+
+class DropFileList(QListWidget):
+    """A QListWidget that accepts file/folder drag-and-drop."""
+
+    files_dropped = Signal(list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent):
+        paths = []
+        for url in event.mimeData().urls():
+            path = url.toLocalFile()
+            if path:
+                paths.append(path)
+        if paths:
+            self.files_dropped.emit(paths)
+        event.acceptProposedAction()

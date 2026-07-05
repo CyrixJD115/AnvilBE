@@ -5,6 +5,7 @@ Provides BOM stripping, safe decoding, and robust file read/write helpers.
 import os as _os
 import json as _json
 import logging as _logging
+import re as _re
 
 
 def strip_bom(text):
@@ -46,16 +47,8 @@ def read_json_safe(path):
     """Read and parse a JSON file, stripping comments first."""
     try:
         content = read_text_file_utf8_strip_bom(path)
-        # Strip single-line and multi-line comments
-        import re
-        cleaned = re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=re.MULTILINE | re.DOTALL)
+        cleaned = _re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=_re.MULTILINE | _re.DOTALL)
         return _json.loads(cleaned)
     except Exception as e:
         _logging.warning(f"Failed to read JSON from {path}: {e}")
         return None
-
-
-def sanitize_filename(filename):
-    """Sanitize a filename to be safe for the filesystem."""
-    import re
-    return re.sub(r'[^\w\-_\. ]', '_', filename)

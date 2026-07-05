@@ -9,29 +9,30 @@ import zipfile as _zipfile
 import shutil as _shutil
 import re as _re
 import uuid as _uuid
-import hashlib
 import datetime as _datetime
 import tempfile as _tempfile
 import logging as _logging
-import traceback
+import traceback as _traceback
 import threading as _threading
+import csv as _csv
+import fnmatch as _fnmatch
 from collections import defaultdict
 from pathlib import Path
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QMessageBox, QStatusBar, QMenuBar, QFileDialog,
-    QLabel, QInputDialog, QDialog
+    QLabel, QDialog
 )
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QIcon
 
 # ── Core modules ─────────────────────────────────────────────────────
 from src.core.file_utils import (
     strip_bom, read_text_file_utf8_strip_bom, write_text_file_utf8,
     safe_decode, read_json_safe
 )
-from src.core.i18n import _, _f, _init_translations, _tr_load, _get_tos_text
+from src.core.i18n import _, _f, _tr, _init_translations, _tr_load
 from src.core.pack_utils import (
     is_pack_folder, has_pack_icon, validate_pack_folder,
     recursive_extract_pack, folder_to_mcpack, zip_pack_folder,
@@ -46,10 +47,11 @@ from src.ui.mcpacker_tab import MCPackerTab
 from src.ui.list_maker_tab import ListMakerTab
 from src.ui.help_tab import HelpTab
 from src.ui.settings_tab import SettingsTab
+from src.ui.console_tab import ConsoleTab
 
 # ── Dialogs ──────────────────────────────────────────────────────────
 from src.ui.dialogs import (
-    ConflictResolutionDialog, SubpackSelectionDialog,
+    ConflictResolutionDialog,
     VersionCheckDialog, PackCustomizationDialog, AboutDialog
 )
 
@@ -69,16 +71,8 @@ except Exception:
     _FIXERS = []
     _UNIVERSAL_PATCHER = None
 
-try:
-    from src.fixers.excel_manager import ExcelManager, is_excel_available
-    _EXCEL_AVAILABLE = is_excel_available()
-    _EXCEL_MANAGER = ExcelManager() if _EXCEL_AVAILABLE else None
-except Exception:
-    _EXCEL_AVAILABLE = False
-    _EXCEL_MANAGER = None
-
 # ── App version ──────────────────────────────────────────────────────
-APP_VERSION = "7.0.2.0"
+APP_VERSION = "7.0.2"
 
 # Mergeable files — JSON files that can be merged from multiple packs
 _MERGEABLE_FILES = {
@@ -115,6 +109,7 @@ class AutoBEWindow(QMainWindow):
         # ── State ────────────────────────────────────────────────────
         self._files = []
         self._out_dir = _os.path.expanduser("~")
+        self._output_format = "mcaddon"
         self.worker_thread = None
 
         # Version tracking
@@ -127,11 +122,11 @@ class AutoBEWindow(QMainWindow):
         # Settings
         self._settings = self._load_settings()
         self._current_lang = self._settings.get("lang", "en")
-        self.fixers_enabled = self._settings.get("fixers_enabled", False)
         self.modpack_organization = self._settings.get("modpack_organization", False)
         self.merge_by_version = self._settings.get("merge_by_version", False)
-        self.customize_pack_after_merge = self._settings.get("customize_pack_after_merge", False)
+        self.customize_pack_after_merge = self._settings.get("customize_pack_after_merge", True)
         self.show_linked_packs_after_merge = self._settings.get("show_linked_packs_after_merge", False)
+        self._output_format = self._settings.get("output_format", "mcaddon")
 
         # Merge progress
         self._progress = {'value': 0, 'maximum': 100}
@@ -153,6 +148,9 @@ class AutoBEWindow(QMainWindow):
         if saved_out and _os.path.isdir(saved_out):
             self._out_dir = saved_out
             self.merger_tab.entry_output_dir.setText(saved_out)
+
+        # Apply saved output format
+        self.merger_tab.set_output_format(self._output_format)
 
     # ──────────────────────────────────────────────────────────────────
     # UI SETUP
@@ -183,17 +181,19 @@ class AutoBEWindow(QMainWindow):
         self.list_maker_tab = ListMakerTab()
         self.settings_tab = SettingsTab()
         self.help_tab = HelpTab()
+        self.console_tab = ConsoleTab()
 
-        self.notebook.addTab(self.merger_tab, _("tabs.autobe") if _("tabs.autobe") != "tabs.autobe" else "Merger")
-        self.notebook.addTab(self.mcpacker_tab, _("tabs.mcpacker") if _("tabs.mcpacker") != "tabs.mcpacker" else "MCPacker")
-        self.notebook.addTab(self.list_maker_tab, _("tabs.list_maker") if _("tabs.list_maker") != "tabs.list_maker" else "List Maker")
-        self.notebook.addTab(self.settings_tab, "Settings")
-        self.notebook.addTab(self.help_tab, _("tabs.help") if _("tabs.help") != "tabs.help" else "Help")
+        self.notebook.addTab(self.merger_tab, "")
+        self.notebook.addTab(self.mcpacker_tab, "")
+        self.notebook.addTab(self.list_maker_tab, "")
+        self.notebook.addTab(self.settings_tab, "")
+        self.notebook.addTab(self.help_tab, "")
+        self.notebook.addTab(self.console_tab, "")
 
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.mode_label = QLabel("Ready")
+        self.mode_label = QLabel(_tr("status.ready", "Ready"))
         self.mode_label.setProperty("class", "status-mode")
         self.status_bar.addWidget(self.mode_label, 1)
         self.trademark_label = QLabel("Anvil-MC")
@@ -202,24 +202,49 @@ class AutoBEWindow(QMainWindow):
 
         # Menu bar
         self._create_menu_bar()
+        # Apply initial translations to tabs + menus
+        self._retranslate_ui()
 
     def _create_menu_bar(self):
-        """Create the menu bar with File and Help menus."""
+        """Create the menu bar with File and Help menus (text set via _retranslate_ui)."""
         menubar = self.menuBar()
+        self._menu_tr_targets = []  # list of (setter, key, fallback)
 
-        file_menu = menubar.addMenu(_("menu.file") if _("menu.file") != "menu.file" else "&File")
-        file_menu.addAction(_("menu.add_files") if _("menu.add_files") != "menu.add_files" else "Add &Files",
-                           self._add_files, "Ctrl+O")
+        file_menu = menubar.addMenu("")
+        self._menu_tr_targets.append((file_menu.setTitle, "menu.file", "&File"))
+        act = file_menu.addAction("", self._add_files, "Ctrl+O")
+        self._menu_tr_targets.append((act.setText, "menu.add_files", "Add &Files"))
         file_menu.addSeparator()
-        file_menu.addAction(_("menu.exit") if _("menu.exit") != "menu.exit" else "E&xit",
-                           self.close, "Ctrl+Q")
+        act = file_menu.addAction("", self.close, "Ctrl+Q")
+        self._menu_tr_targets.append((act.setText, "menu.exit", "E&xit"))
 
-        help_menu = menubar.addMenu(_("menu.help") if _("menu.help") != "menu.help" else "&Help")
-        help_menu.addAction(_("menu.help_contents") if _("menu.help_contents") != "menu.help_contents" else "&Help",
-                           self._show_help, "F1")
+        help_menu = menubar.addMenu("")
+        self._menu_tr_targets.append((help_menu.setTitle, "menu.help", "&Help"))
+        act = help_menu.addAction("", self._show_help, "F1")
+        self._menu_tr_targets.append((act.setText, "menu.help_contents", "&Help"))
         help_menu.addSeparator()
-        help_menu.addAction(_("menu.about") if _("menu.about") != "menu.about" else "&About",
-                           self._show_about)
+        act = help_menu.addAction("", self._show_about)
+        self._menu_tr_targets.append((act.setText, "menu.about", "&About"))
+
+    def _retranslate_ui(self):
+        """Re-apply translatable UI strings (tabs + menus) after a language change."""
+        tabs = [
+            (0, "tabs.merger", "Merger"),
+            (1, "tabs.pack_utility", "Pack Utility"),
+            (2, "tabs.pack_organizer", "Pack Organizer"),
+            (3, "tabs.settings", "Settings"),
+            (4, "tabs.help", "Help"),
+            (5, "tabs.console", "Console"),
+        ]
+        for idx, key, fallback in tabs:
+            self.notebook.setTabText(idx, _tr(key, fallback))
+        for setter, key, fallback in getattr(self, "_menu_tr_targets", []):
+            setter(_tr(key, fallback))
+        # Retranslate every child tab/widget
+        for child in (self.merger_tab, self.mcpacker_tab, self.list_maker_tab,
+                      self.settings_tab, self.help_tab, self.console_tab):
+            if hasattr(child, "retranslate_ui"):
+                child.retranslate_ui()
 
     def _load_styles(self):
         """Apply the QSS stylesheet."""
@@ -231,11 +256,13 @@ class AutoBEWindow(QMainWindow):
         """Connect UI signals to handlers."""
         # Merger tab
         self.merger_tab.btn_add.clicked.connect(self._add_files)
+        self.merger_tab.btn_add_folder.clicked.connect(self._add_folder)
         self.merger_tab.btn_remove.clicked.connect(self._remove_files)
         self.merger_tab.btn_check_packs.clicked.connect(self._check_packs)
         self.merger_tab.btn_select_output.clicked.connect(self._select_output_dir)
         self.merger_tab.btn_start.clicked.connect(self._start_merge)
         self.merger_tab.btn_cancel.clicked.connect(self._cancel_merge)
+        self.merger_tab.file_list_box.files_dropped.connect(self._on_files_dropped)
 
         # MCPacker tab
         self.mcpacker_tab.btn_add.clicked.connect(self._mcpacker_add)
@@ -284,11 +311,11 @@ class AutoBEWindow(QMainWindow):
         settings = {
             "lang": self._current_lang,
             "output_dir": self._out_dir,
-            "fixers_enabled": self.fixers_enabled,
             "modpack_organization": self.modpack_organization,
             "merge_by_version": self.merge_by_version,
             "customize_pack_after_merge": self.customize_pack_after_merge,
             "show_linked_packs_after_merge": self.show_linked_packs_after_merge,
+            "output_format": getattr(self, '_output_format', 'mcaddon'),
         }
         try:
             with open(path, 'w', encoding='utf-8') as f:
@@ -300,28 +327,40 @@ class AutoBEWindow(QMainWindow):
     # FILE SELECTION
     # ──────────────────────────────────────────────────────────────────
 
-    def _add_files(self):
-        """Open file dialog to add packs to the merger tab."""
-        files, _ = QFileDialog.getOpenFileNames(
-            self, "Select Pack Files",
-            _os.path.expanduser("~"),
-            "Minecraft Packs (*.mcpack *.mcaddon *.zip);;All Files (*.*)")
-        if not files:
-            return
-
+    def _add_files_to_list(self, paths):
+        """Add paths (files or dirs) to the merger file list, deduplicating."""
         existing = self.merger_tab.get_file_list()
         existing_set = set(existing)
         added = 0
-        for f in files:
-            if f not in existing_set:
-                existing.append(f)
-                existing_set.add(f)
+        for p in paths:
+            if p not in existing_set:
+                existing.append(p)
+                existing_set.add(p)
                 added += 1
-
         if added > 0:
             self.merger_tab.set_file_list(existing)
-            self.mode_label.setText(f"{len(existing)} file(s) loaded")
+            self.mode_label.setText(_tr("status.files_loaded", "{n} file(s) loaded").format(n=len(existing)))
             self.merger_tab.achievement_indicator.set_status_unknown()
+
+    def _add_files(self):
+        """Open file dialog to add pack files (.mcpack/.mcaddon/.zip)."""
+        files, _ = QFileDialog.getOpenFileNames(
+            self, _tr("filedialog.select_pack_files", "Select Pack Files"),
+            self._out_dir,
+            _tr("filedialog.pack_filter", "Minecraft Packs (*.mcpack *.mcaddon *.zip);;All Files (*)"))
+        if files:
+            self._add_files_to_list(files)
+
+    def _add_folder(self):
+        """Open directory dialog to add a pack folder."""
+        folder = QFileDialog.getExistingDirectory(
+            self, _tr("filedialog.select_pack_folder", "Select Pack Folder"), self._out_dir)
+        if folder:
+            self._add_files_to_list([folder])
+
+    def _on_files_dropped(self, paths):
+        """Handle files/folders dropped onto the file list."""
+        self._add_files_to_list(paths)
 
     def _remove_files(self):
         """Remove selected files from the merger tab."""
@@ -333,15 +372,16 @@ class AutoBEWindow(QMainWindow):
         remove_set = set(item.text() for item in selected)
         remaining = [f for f in current if f not in remove_set]
         self.merger_tab.set_file_list(remaining)
-        self.mode_label.setText(f"{len(remaining)} file(s) loaded")
+        self.mode_label.setText(_tr("status.files_loaded", "{n} file(s) loaded").format(n=len(remaining)))
 
     def _select_output_dir(self):
         """Open directory dialog for output selection."""
         directory = QFileDialog.getExistingDirectory(
-            self, "Select Output Directory", self._out_dir)
+            self, _tr("filedialog.select_output_dir", "Select Output Directory"), self._out_dir)
         if directory:
             self._out_dir = directory
             self.merger_tab.entry_output_dir.setText(directory)
+            self._output_format = self.merger_tab.get_output_format()
             self._save_settings()
 
     # ──────────────────────────────────────────────────────────────────
@@ -352,76 +392,130 @@ class AutoBEWindow(QMainWindow):
         """Scan loaded packs and show version grouping dialog."""
         files = self.merger_tab.get_file_list()
         if not files:
-            QMessageBox.warning(self, "No Files", "Please add pack files first.")
+            QMessageBox.warning(self, _tr("msg.no_files", "No Files"),
+                                _tr("msg.add_files_first", "Please add pack files first."))
             return
 
-        self.mode_label.setText("Scanning packs...")
+        self.mode_label.setText(_tr("status.scanning_packs", "Scanning packs..."))
         self.merger_tab.achievement_indicator.set_status_unknown()
         QApplication.processEvents()
 
         version_groups = defaultdict(list)
+        failed = 0
+        any_scripts = False
 
         for file_path in files:
             manifest = get_pack_manifest_data(file_path)
-            if manifest:
-                pack_name = _os.path.basename(file_path)
-                fmt_ver = manifest.get('format_version', '')
-                modules = manifest.get('modules', [])
+            if not manifest:
+                failed += 1
+                continue
 
-                # Determine script API version
-                script_ver = "No Script API"
-                deps = manifest.get('dependencies', [])
-                for dep in deps:
-                    mod_name = dep.get('module_name', '')
-                    if mod_name == '@minecraft/server':
-                        script_ver = dep.get('version', '1.0.0')
-                        if isinstance(script_ver, list):
-                            script_ver = '.'.join(str(v) for v in script_ver)
-                        break
+            # Display name from manifest header, fall back to filename
+            header = manifest.get('header', {}) or {}
+            pack_name = header.get('name') or _os.path.basename(file_path)
 
-                version_groups[script_ver].append({
-                    'name': pack_name,
-                    'format_version': fmt_ver,
-                    'file_path': file_path,
-                    'manifest': manifest,
-                })
+            # Pack type (RP / BP / both)
+            modules = manifest.get('modules', []) or []
+            is_rp = any(m.get('type', '').lower() == 'resources' for m in modules)
+            is_bp = any(m.get('type', '').lower() in ('data', 'script') for m in modules)
+            types = []
+            if is_rp:
+                types.append('RP')
+            if is_bp:
+                types.append('BP')
+            pack_type = '+'.join(types) if types else '?'
+
+            if any(m.get('type', '').lower() == 'script' for m in modules):
+                any_scripts = True
+
+            # Script API dependencies
+            scripts = []
+            server_ver = "No Script API"
+            for dep in manifest.get('dependencies', []) or []:
+                mod_name = dep.get('module_name', '')
+                if not mod_name.startswith('@minecraft/'):
+                    continue
+                ver = dep.get('version', '')
+                if isinstance(ver, list):
+                    ver = '.'.join(str(v) for v in ver)
+                scripts.append(f"{mod_name} {ver}".strip())
+                if mod_name == '@minecraft/server':
+                    server_ver = ver or 'unspecified'
+
+            version_groups[server_ver].append({
+                'name': pack_name,
+                'type': pack_type,
+                'scripts': scripts,
+                'file_path': file_path,
+            })
 
         # Show version check dialog
-        dialog = VersionCheckDialog(dict(version_groups), self)
+        dialog = VersionCheckDialog(dict(version_groups), failed, self)
         dialog.exec()
 
-        self.mode_label.setText("Pack check complete")
-        self.merger_tab.achievement_indicator.set_status_compatible()
+        # Proactive suggestion: enable merge-by-version if the user opted in
+        if getattr(dialog, 'merge_by_version_requested', False) and not self.merge_by_version:
+            self.merge_by_version = True
+            self.settings_tab.chk_merge_version.setChecked(True)
+            self._save_settings()
+            self.merger_tab.set_status(_tr("status.merge_by_version_enabled", "Merge by version enabled from pack check."))
+            _logging.info("Merge-by-version enabled via Check Packs suggestion")
+
+        # Reflect actual achievement compatibility based on script presence
+        self.merger_tab.achievement_indicator.set_status(not any_scripts)
+        self.mode_label.setText(f"{len(files)} file(s) loaded")
 
     # ──────────────────────────────────────────────────────────────────
     # MERGE PIPELINE — START
     # ──────────────────────────────────────────────────────────────────
 
+    def _build_customization_prefill(self, files):
+        """Build a prefill dict (name/author/description) from the first pack's manifest."""
+        prefill = {}
+        if files:
+            manifest = get_pack_manifest_data(files[0])
+            if manifest:
+                header = manifest.get('header', {}) or {}
+                if header.get('name'):
+                    prefill['name'] = header['name']
+                authors = header.get('authors')
+                if isinstance(authors, list) and authors:
+                    prefill['author'] = str(authors[0])
+                elif isinstance(authors, str) and authors:
+                    prefill['author'] = authors
+                if header.get('description'):
+                    prefill['description'] = header['description']
+        return prefill
+
     def _start_merge(self):
         """Entry point for the merge process. Validates input and starts worker thread."""
         files = self.merger_tab.get_file_list()
         if not files:
-            QMessageBox.warning(self, "No Files", "Please add pack files first.")
+            QMessageBox.warning(self, _tr("msg.no_files", "No Files"),
+                                _tr("msg.add_files_first", "Please add pack files first."))
             return
 
         out_dir = self.merger_tab.entry_output_dir.text().strip()
         if not out_dir or not _os.path.isdir(out_dir):
-            QMessageBox.warning(self, "No Output", "Please select a valid output directory.")
+            QMessageBox.warning(self, _tr("msg.no_output", "No Output"),
+                                _tr("msg.select_valid_output", "Please select a valid output directory."))
             return
 
         self._out_dir = out_dir
         self._files = files
+        self._output_format = self.merger_tab.get_output_format()
         self._save_settings()
 
         # Disable UI during merge
         self.merger_tab.set_merge_running(True)
         self.merger_tab.set_progress(0)
-        self.merger_tab.set_status("Starting merge...")
-        self.mode_label.setText("Merging...")
+        self.merger_tab.set_status(_tr("status.starting_merge", "Starting merge..."))
+        self.mode_label.setText(_tr("status.merging", "Merging..."))
 
         # Show pack customization dialog if enabled
         if self.customize_pack_after_merge:
-            dlg = PackCustomizationDialog(self)
+            prefill = self._build_customization_prefill(files)
+            dlg = PackCustomizationDialog(prefill, self)
             if dlg.exec() == QDialog.Accepted:
                 self._pack_customization = dlg.get_customization()
             else:
@@ -449,28 +543,29 @@ class AutoBEWindow(QMainWindow):
     def _on_merge_finished(self, success, message):
         """Handle merge completion from worker signal."""
         self.merger_tab.set_merge_running(False)
-        self.mode_label.setText("Ready" if success else "Merge failed")
+        self.mode_label.setText(_tr("status.ready", "Ready") if success
+                                else _tr("status.merge_failed", "Merge failed"))
 
         if success:
             self.merger_tab.achievement_indicator.set_status_compatible()
-            QMessageBox.information(self, "Merge Complete", message)
+            QMessageBox.information(self, _tr("msg.merge_complete", "Merge Complete"), message)
         else:
             self.merger_tab.achievement_indicator.set_status_incompatible()
-            QMessageBox.critical(self, "Merge Failed", message)
+            QMessageBox.critical(self, _tr("msg.merge_failed", "Merge Failed"), message)
 
         self.worker_thread = None
 
     def _on_merge_error(self, error_msg):
         """Handle merge error from worker signal."""
         _logging.error(f"Merge error: {error_msg}")
-        self.mode_label.setText("Error")
+        self.mode_label.setText(_tr("status.error", "Error"))
 
     def _cancel_merge(self):
         """Cancel the running merge operation."""
         if self.worker_thread and self.worker_thread.isRunning():
             self.worker_thread.cancel()
-            self.merger_tab.set_status("Cancelling...")
-            self.mode_label.setText("Cancelling")
+            self.merger_tab.set_status(_tr("status.cancelling", "Cancelling..."))
+            self.mode_label.setText(_tr("status.cancelling_short", "Cancelling"))
 
     # ──────────────────────────────────────────────────────────────────
     # SETTINGS TAB HANDLERS
@@ -478,7 +573,8 @@ class AutoBEWindow(QMainWindow):
 
     def _settings_browse_output(self):
         """Browse for default output directory in settings tab."""
-        path = QFileDialog.getExistingDirectory(self, "Select Default Output Directory")
+        path = QFileDialog.getExistingDirectory(
+            self, _tr("filedialog.select_default_output", "Select Default Output Directory"))
         if path:
             self.settings_tab.set_output_dir(path)
 
@@ -493,13 +589,14 @@ class AutoBEWindow(QMainWindow):
             _logging.warning(f"Could not save settings: {e}")
 
         # Apply settings to app state
-        self._current_lang = new_settings.get("lang", self._current_lang)
-        if self._current_lang != "en":
+        new_lang = new_settings.get("lang", self._current_lang)
+        if new_lang != self._current_lang:
+            self._current_lang = new_lang
             _tr_load(self._current_lang)
-        self.fixers_enabled = new_settings.get("fixers_enabled", False)
+            self._retranslate_ui()
         self.modpack_organization = new_settings.get("modpack_organization", False)
         self.merge_by_version = new_settings.get("merge_by_version", False)
-        self.customize_pack_after_merge = new_settings.get("customize_pack_after_merge", False)
+        self.customize_pack_after_merge = new_settings.get("customize_pack_after_merge", True)
         self.show_linked_packs_after_merge = new_settings.get("show_linked_packs_after_merge", False)
         out_dir = new_settings.get("output_dir", "")
         if out_dir and _os.path.isdir(out_dir):
@@ -517,22 +614,22 @@ class AutoBEWindow(QMainWindow):
         for file_path in self._files:
             if not _os.path.exists(file_path):
                 if show_gui:
-                    QMessageBox.critical(self, "File Not Found",
-                                         f"File not found:\n{file_path}")
+                    QMessageBox.critical(self, _tr("msg.file_not_found", "File Not Found"),
+                                         _tr("msg.file_not_found_body", "File not found:\n{path}").format(path=file_path))
                 return False
 
             if _os.path.isdir(file_path):
                 if not validate_pack_folder(file_path)[0]:
                     if show_gui:
-                        QMessageBox.warning(self, "Invalid Pack",
-                                            f"Invalid pack folder:\n{file_path}")
+                        QMessageBox.warning(self, _tr("msg.invalid_pack", "Invalid Pack"),
+                                            _tr("msg.invalid_pack_body", "Invalid pack folder:\n{path}").format(path=file_path))
                     valid = False
             else:
                 ext = _os.path.splitext(file_path)[1].lower()
                 if ext not in ('.mcpack', '.mcaddon', '.zip'):
                     if show_gui:
-                        QMessageBox.warning(self, "Unsupported File",
-                                            f"Unsupported file type:\n{file_path}")
+                        QMessageBox.warning(self, _tr("msg.unsupported_file", "Unsupported File"),
+                                            _tr("msg.unsupported_file_body", "Unsupported file type:\n{path}").format(path=file_path))
                     valid = False
 
         return valid
@@ -784,6 +881,27 @@ class AutoBEWindow(QMainWindow):
 
                 target_dir = rp_dir if is_rp else bp_dir
 
+                # Apply pack-level fixers
+                pack_zip = _os.path.join(output_dir, f"_fix_{_os.path.basename(pack_dir)}.mcpack")
+                try:
+                    zip_pack_folder(pack_dir, pack_zip)
+                    with _zipfile.ZipFile(pack_zip, 'r') as z:
+                        pack_basename = _os.path.basename(file_path)
+                        extra = _apply_pack_fixers(_FIXERS, pack_basename, z)
+                        for side, base_dir in [('rp', rp_dir), ('bp', bp_dir)]:
+                            for fpath, content in extra.get(side, {}).items():
+                                out = _os.path.join(base_dir, fpath)
+                                _os.makedirs(_os.path.dirname(out), exist_ok=True)
+                                with open(out, 'wb') as f:
+                                    f.write(content)
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        _os.remove(pack_zip)
+                    except Exception:
+                        pass
+
                 # Walk pack directory
                 for root, dirs, files_in_dir in _os.walk(pack_dir):
                     for filename in files_in_dir:
@@ -803,7 +921,8 @@ class AutoBEWindow(QMainWindow):
                             continue
 
                         # Apply ExtendedBE fixers
-                        content_bytes = open(filepath, 'rb').read()
+                        with open(filepath, 'rb') as fh:
+                            content_bytes = fh.read()
                         pack_basename = _os.path.basename(file_path)
                         fixed_path, fixed_content = _apply_fixers(
                             _FIXERS, pack_basename, rel_path, content_bytes)
@@ -932,7 +1051,7 @@ class AutoBEWindow(QMainWindow):
 
         # Merge item files
         for identifier, entries in item_files_by_id.items():
-            merged = self._merge_item_group(identifier, entries, merger)
+            merged = self._merge_item_group(identifier, entries, merger, identifier_manager)
             if merged:
                 out_path = _os.path.join(bp_dir, 'items', f"{identifier.split(':')[-1]}.json")
                 _os.makedirs(_os.path.dirname(out_path), exist_ok=True)
@@ -941,7 +1060,7 @@ class AutoBEWindow(QMainWindow):
 
         # Merge block files
         for identifier, entries in block_files_by_id.items():
-            merged = self._merge_block_group(identifier, entries, merger)
+            merged = self._merge_block_group(identifier, entries, merger, identifier_manager)
             if merged:
                 out_path = _os.path.join(bp_dir, 'blocks', f"{identifier.split(':')[-1]}.json")
                 _os.makedirs(_os.path.dirname(out_path), exist_ok=True)
@@ -1038,6 +1157,17 @@ class AutoBEWindow(QMainWindow):
         if not entries:
             return None
 
+        # Honor "Keep one pack" conflict resolution: drop definitions from
+        # packs the user did not choose to keep for this identifier.
+        if identifier_manager:
+            kept = [e for e in entries if identifier_manager.should_include_definition(e[2], identifier)]
+            if len(kept) != len(entries):
+                _logging.info(f"Conflict resolution for {identifier}: kept {len(kept)}/{len(entries)} definitions")
+            entries = kept
+
+        if not entries:
+            return None
+
         # Sort entries by source pack for deterministic order
         entries.sort(key=lambda x: x[0])
 
@@ -1051,14 +1181,28 @@ class AutoBEWindow(QMainWindow):
 
         return merged
 
-    def _merge_item_group(self, identifier, entries, merger):
+    def _merge_item_group(self, identifier, entries, merger, identifier_manager=None):
+        if not entries:
+            return None
+        if identifier_manager:
+            kept = [e for e in entries if identifier_manager.should_include_definition(e[2], identifier)]
+            if len(kept) != len(entries):
+                _logging.info(f"Conflict resolution for {identifier}: kept {len(kept)}/{len(entries)} definitions")
+            entries = kept
         if not entries:
             return None
         entries.sort(key=lambda x: x[0])
         json_list = [data for _, data, _ in entries]
         return merger.merge_json_list(json_list, file_path=f"item/{identifier}")
 
-    def _merge_block_group(self, identifier, entries, merger):
+    def _merge_block_group(self, identifier, entries, merger, identifier_manager=None):
+        if not entries:
+            return None
+        if identifier_manager:
+            kept = [e for e in entries if identifier_manager.should_include_definition(e[2], identifier)]
+            if len(kept) != len(entries):
+                _logging.info(f"Conflict resolution for {identifier}: kept {len(kept)}/{len(entries)} definitions")
+            entries = kept
         if not entries:
             return None
         entries.sort(key=lambda x: x[0])
@@ -1110,103 +1254,8 @@ class AutoBEWindow(QMainWindow):
         dlg.exec()
 
     # ──────────────────────────────────────────────────────────────────
-    # MERGE HELPERS — JSON loading, entity merging, etc.
+    # MERGE HELPERS — JSON merging
     # ──────────────────────────────────────────────────────────────────
-
-    def _load_json_with_comments(self, file_obj):
-        """Load JSON from a file object, stripping // and /* */ comments."""
-        try:
-            raw = file_obj.read()
-            if isinstance(raw, bytes):
-                text = raw.decode('utf-8', errors='ignore')
-            else:
-                text = raw
-            text = strip_bom(text)
-            cleaned = _re.sub(r'//.*?$|/\*.*?\*/', '', text,
-                              flags=_re.MULTILINE | _re.DOTALL)
-            return _json.loads(cleaned)
-        except Exception:
-            return None
-
-    def _handle_json_item(self, pack_zip, item, json_contents, output_zip,
-                          module_type, pack_path, identifier_manager=None,
-                          _override_name=None):
-        """Read a JSON file from a pack zip and add it to the merge collection."""
-        try:
-            with pack_zip.open(item) as f:
-                jd = self._load_json_with_comments(f)
-                if jd is not None:
-                    name = _override_name if _override_name else item.filename if hasattr(item, 'filename') else item
-                    json_contents.setdefault(name, []).append(jd)
-        except Exception:
-            pass
-
-    def _merge_behavior_entity(self, entity_list):
-        """
-        Merge multiple BP entity definitions with component-group conflict routing.
-        Conflicting components are moved to uniquely-named component groups,
-        avoiding silent overwrites.
-        """
-        if not entity_list:
-            return {}
-        if len(entity_list) == 1:
-            return entity_list[0]['data']
-
-        merged = {}
-        self._merge_json_deep(merged, entity_list[0]['data'])
-
-        for entity_file in entity_list[1:]:
-            src = entity_file['data']
-            pack_raw = _os.path.basename(entity_file['pack_path'])
-            pack_raw = _re.sub(r'\.(mcpack|mcaddon)$', '', pack_raw, flags=_re.IGNORECASE)
-            pack_raw = _re.sub(r'_modified$', '', pack_raw, flags=_re.IGNORECASE)
-            pack_raw = _re.sub(r'_\d+$', '', pack_raw)
-            clean = _re.sub(r'[^a-zA-Z0-9]', '_', pack_raw)[:16].strip('_')
-            group_name = f"autobe_{clean}_ov"
-
-            ent_key = 'minecraft:entity'
-            if ent_key not in src or ent_key not in merged:
-                self._merge_json_deep(merged, src)
-                continue
-
-            src_def = src[ent_key]
-            base_def = merged[ent_key]
-            src_comps = src_def.get('components', {})
-            base_comps = base_def.setdefault('components', {})
-
-            overrides = {}
-            for comp_key, comp_val in src_comps.items():
-                if comp_key in base_comps:
-                    if _json.dumps(comp_val, sort_keys=True) != _json.dumps(base_comps[comp_key], sort_keys=True):
-                        overrides[comp_key] = comp_val
-                else:
-                    base_comps[comp_key] = comp_val
-
-            if overrides:
-                base_def.setdefault('component_groups', {})[group_name] = overrides
-                spawn_ev = base_def.setdefault('events', {}).setdefault('minecraft:entity_spawned', {})
-                cg_list = spawn_ev.setdefault('add', {}).setdefault('component_groups', [])
-                if group_name not in cg_list:
-                    cg_list.append(group_name)
-
-            for k, v in src_def.items():
-                if k == 'components':
-                    continue
-                if k in base_def:
-                    if isinstance(base_def[k], dict) and isinstance(v, dict):
-                        self._merge_json_deep(base_def[k], v)
-                    elif isinstance(base_def[k], list) and isinstance(v, list):
-                        base_def[k] = self._union_merge_list(base_def[k], v)
-                else:
-                    base_def[k] = v
-
-            for k, v in src.items():
-                if k == ent_key:
-                    continue
-                if k not in merged:
-                    merged[k] = v
-
-        return merged
 
     _MERGE_MAX_KEYS = frozenset({
         'value', 'max', 'min', 'amount', 'speed', 'damage',
@@ -1313,6 +1362,16 @@ class AutoBEWindow(QMainWindow):
             bp_manifest['header']['description'] = cust.get('description', '')
             rp_manifest['header']['name'] = cust.get('name', 'Merged Resource Pack')
             rp_manifest['header']['description'] = cust.get('description', '')
+            if cust.get('author'):
+                author = cust['author'].strip()
+                bp_manifest['header']['authors'] = [author]
+                rp_manifest['header']['authors'] = [author]
+
+        custom_icon = None
+        if hasattr(self, '_pack_customization') and self._pack_customization:
+            icon_path = self._pack_customization.get('icon_path')
+            if icon_path and _os.path.isfile(icon_path):
+                custom_icon = icon_path
 
         # Write manifests
         bp_zip = _os.path.join(output_dir, "behavior_pack.zip")
@@ -1327,6 +1386,18 @@ class AutoBEWindow(QMainWindow):
                     m_path = _os.path.join(temp_dir, 'manifest.json')
                     with open(m_path, 'w', encoding='utf-8') as f:
                         _json.dump(manifest, f, indent=2)
+                    # Inject custom pack icon if provided
+                    if custom_icon:
+                        for ext in ('.png', '.jpg', '.jpeg'):
+                            old = _os.path.join(temp_dir, f'pack_icon{ext}')
+                            if _os.path.isfile(old):
+                                try:
+                                    _os.remove(old)
+                                except Exception:
+                                    pass
+                        with open(custom_icon, 'rb') as src, \
+                                open(_os.path.join(temp_dir, 'pack_icon.png'), 'wb') as dst:
+                            dst.write(src.read())
                     # Re-zip
                     zip_pack_folder(temp_dir, zip_path)
                 finally:
@@ -1335,15 +1406,15 @@ class AutoBEWindow(QMainWindow):
                     except Exception:
                         pass
 
-    def _merge_flipbook_textures(self, files):
-        """Merge flipbook_textures.json from multiple packs."""
+    def _merge_json_list_file(self, files, subpath, out_name=None):
+        """Merge a JSON list file (e.g. flipbook_textures.json) from multiple packs."""
         merged = []
         for f in files:
             if _os.path.isdir(f):
-                fb_path = _os.path.join(f, 'textures', 'flipbook_textures.json')
-                if _os.path.isfile(fb_path):
+                p = _os.path.join(f, subpath)
+                if _os.path.isfile(p):
                     try:
-                        with open(fb_path, 'r', encoding='utf-8') as fh:
+                        with open(p, 'r', encoding='utf-8') as fh:
                             text = fh.read()
                         cleaned = '\n'.join(ln for ln in text.splitlines() if not ln.strip().startswith('//'))
                         jd = _json.loads(cleaned)
@@ -1355,11 +1426,9 @@ class AutoBEWindow(QMainWindow):
             try:
                 with _zipfile.ZipFile(f, 'r') as z:
                     try:
-                        data = z.read('textures/flipbook_textures.json')
+                        data = z.read(subpath)
                         text = data.decode('latin-1')
-                        cleaned = '\n'.join(
-                            ln for ln in text.splitlines()
-                            if not ln.strip().startswith('//'))
+                        cleaned = '\n'.join(ln for ln in text.splitlines() if not ln.strip().startswith('//'))
                         jd = _json.loads(cleaned)
                         if isinstance(jd, list):
                             merged.extend(jd)
@@ -1369,47 +1438,17 @@ class AutoBEWindow(QMainWindow):
                 pass
 
         if merged:
-            out = _os.path.join(self._out_dir, 'flipbook_textures.json')
+            out = _os.path.join(self._out_dir, out_name or _os.path.basename(subpath))
             with open(out, 'w', encoding='utf-8') as f:
                 _json.dump(merged, f)
+
+    def _merge_flipbook_textures(self, files):
+        """Merge flipbook_textures.json from multiple packs."""
+        self._merge_json_list_file(files, 'textures/flipbook_textures.json')
 
     def _merge_textures_list(self, files):
         """Merge textures_list.json from multiple packs."""
-        merged = []
-        for f in files:
-            if _os.path.isdir(f):
-                tl_path = _os.path.join(f, 'textures', 'textures_list.json')
-                if _os.path.isfile(tl_path):
-                    try:
-                        with open(tl_path, 'r', encoding='utf-8') as fh:
-                            text = fh.read()
-                        cleaned = '\n'.join(ln for ln in text.splitlines() if not ln.strip().startswith('//'))
-                        jd = _json.loads(cleaned)
-                        if isinstance(jd, list):
-                            merged.extend(jd)
-                    except Exception:
-                        pass
-                continue
-            try:
-                with _zipfile.ZipFile(f, 'r') as z:
-                    try:
-                        data = z.read('textures/textures_list.json')
-                        text = data.decode('latin-1')
-                        cleaned = '\n'.join(
-                            ln for ln in text.splitlines()
-                            if not ln.strip().startswith('//'))
-                        jd = _json.loads(cleaned)
-                        if isinstance(jd, list):
-                            merged.extend(jd)
-                    except (KeyError, _json.JSONDecodeError):
-                        pass
-            except Exception:
-                pass
-
-        if merged:
-            out = _os.path.join(self._out_dir, 'textures_list.json')
-            with open(out, 'w', encoding='utf-8') as f:
-                _json.dump(merged, f)
+        self._merge_json_list_file(files, 'textures/textures_list.json')
 
     def _extract_and_delete_zip_files(self):
         """Extract flipbook/textures_list JSONs from their temp zips and clean up."""
@@ -1545,14 +1584,20 @@ class AutoBEWindow(QMainWindow):
         all_tick_data = []
         for f in self._files:
             try:
-                with _zipfile.ZipFile(f, 'r') if not _os.path.isdir(f) else None as z:
-                    if z:
+                data = None
+                if _os.path.isdir(f):
+                    tick_path = _os.path.join(f, 'tick.json')
+                    if _os.path.isfile(tick_path):
+                        with open(tick_path, 'r', encoding='utf-8', errors='ignore') as fh:
+                            data = _json.loads(fh.read())
+                else:
+                    with _zipfile.ZipFile(f, 'r') as z:
                         try:
                             data = _json.loads(z.read('tick.json').decode('utf-8'))
-                            if isinstance(data, dict):
-                                all_tick_data.append(data)
                         except (KeyError, _json.JSONDecodeError):
                             pass
+                if isinstance(data, dict):
+                    all_tick_data.append(data)
             except Exception:
                 pass
 
@@ -1639,21 +1684,16 @@ class AutoBEWindow(QMainWindow):
         pass  # Handled by _update_behavior_pack and _move_to_resource_pack
 
     def _final_cleanup(self):
-        """Final cleanup of temporary files."""
+        """Final cleanup of temporary files (preserves output zips)."""
         out_dir = self._out_dir
-        for item in ['temp_merge', 'resource_pack.zip', 'behavior_pack.zip']:
-            path = _os.path.join(out_dir, item)
-            if _os.path.isdir(path):
-                try:
-                    _shutil.rmtree(path)
-                except Exception:
-                    pass
-            elif _os.path.isfile(path):
-                try:
-                    _os.remove(path)
-                except Exception:
-                    pass
-        # Remove any temp scan zips
+        # Remove temp_merge directory if present
+        temp_merge = _os.path.join(out_dir, 'temp_merge')
+        if _os.path.isdir(temp_merge):
+            try:
+                _shutil.rmtree(temp_merge)
+            except Exception:
+                pass
+        # Remove any temp scan/extract dirs
         for fname in _os.listdir(out_dir):
             if fname.startswith('temp_scan_') or fname.startswith('extract_') or fname.startswith('temp_'):
                 try:
@@ -1665,13 +1705,70 @@ class AutoBEWindow(QMainWindow):
                 except Exception:
                     pass
 
+    def _package_output(self):
+        """Convert intermediate resource_pack.zip / behavior_pack.zip into the
+        user-selected output format (mcaddon / mcpack / zip)."""
+        out_dir = self._out_dir
+        fmt = getattr(self, '_output_format', 'mcaddon')
+        rp_zip = _os.path.join(out_dir, 'resource_pack.zip')
+        bp_zip = _os.path.join(out_dir, 'behavior_pack.zip')
+
+        if fmt == 'zip':
+            _logging.info("Output format: .zip (no repackaging)")
+            return
+
+        if fmt == 'mcpack':
+            # Rename to .mcpack extension
+            for src in (rp_zip, bp_zip):
+                if not _os.path.isfile(src):
+                    continue
+                dst = src[:-4] + '.mcpack'
+                if _os.path.exists(dst):
+                    _os.remove(dst)
+                _os.rename(src, dst)
+                _logging.info(f"Created {_os.path.basename(dst)}")
+            return
+
+        # fmt == 'mcaddon' — combine both packs into a single .mcaddon
+        # An .mcaddon is a zip containing pack folders, each with its own
+        # manifest.json.  Minecraft imports all packs when opened.
+        mcaddon_path = _os.path.join(out_dir, 'AnvilMC_merged.mcaddon')
+        tmp = _tempfile.mkdtemp(prefix='mcaddon_')
+        try:
+            # Extract each pack into its own subfolder
+            if _os.path.isfile(rp_zip):
+                rp_dir = _os.path.join(tmp, 'resource_pack')
+                _os.makedirs(rp_dir, exist_ok=True)
+                with _zipfile.ZipFile(rp_zip, 'r') as z:
+                    z.extractall(rp_dir)
+                _os.remove(rp_zip)
+            if _os.path.isfile(bp_zip):
+                bp_dir = _os.path.join(tmp, 'behavior_pack')
+                _os.makedirs(bp_dir, exist_ok=True)
+                with _zipfile.ZipFile(bp_zip, 'r') as z:
+                    z.extractall(bp_dir)
+                _os.remove(bp_zip)
+
+            zip_pack_folder(tmp, mcaddon_path)
+            _logging.info(f"Created {_os.path.basename(mcaddon_path)} "
+                          f"(RP+BP combined)")
+        except Exception as e:
+            _logging.error(f"Failed to create .mcaddon: {e}")
+        finally:
+            if _os.path.isdir(tmp):
+                try:
+                    _shutil.rmtree(tmp)
+                except Exception:
+                    pass
+
     # ──────────────────────────────────────────────────────────────────
     # MCPACKER TAB
     # ──────────────────────────────────────────────────────────────────
 
     def _mcpacker_add(self):
         """Add folders to the MCPacker tab."""
-        folder = QFileDialog.getExistingDirectory(self, "Select Pack Folder")
+        folder = QFileDialog.getExistingDirectory(
+            self, _tr("filedialog.select_pack_folder", "Select Pack Folder"))
         if folder:
             items = []
             for i in range(self.mcpacker_tab.file_list.count()):
@@ -1688,39 +1785,42 @@ class AutoBEWindow(QMainWindow):
     def _mcpacker_browse_output(self):
         """Browse for MCPacker output file."""
         path, _ = QFileDialog.getSaveFileName(
-            self, "Save MCPack As", "", "MCPack Files (*.mcpack)")
+            self, _tr("filedialog.save_mcpack_as", "Save MCPack As"), "",
+            _tr("filedialog.mcpack_filter", "MCPack Files (*.mcpack)"))
         if path:
             self.mcpacker_tab.output_path.setText(path)
 
     def _mcpacker_start(self):
         """Start the MCPacker operation."""
-        mode = self.mcpacker_tab.mode_combo.currentText()
+        mode = "pack" if self.mcpacker_tab.mode_combo.currentData() == "pack" else "unpack"
         items = []
         for i in range(self.mcpacker_tab.file_list.count()):
             items.append(self.mcpacker_tab.file_list.item(i).text())
 
         if not items:
-            QMessageBox.warning(self, "No Items", "Please add folders first.")
+            QMessageBox.warning(self, _tr("msg.no_items", "No Items"),
+                                _tr("msg.add_folders_first", "Please add folders first."))
             return
 
         output = self.mcpacker_tab.output_path.text().strip()
         if not output:
-            QMessageBox.warning(self, "No Output", "Please specify an output path.")
+            QMessageBox.warning(self, _tr("msg.no_output", "No Output"),
+                                _tr("msg.specify_output_path", "Please specify an output path."))
             return
 
-        if mode == "Pack":
+        if mode == "pack":
             for folder in items:
                 if _os.path.isdir(folder):
                     out_name = _os.path.basename(folder.rstrip('/\\')) + '.mcpack'
                     out_path = _os.path.join(output, out_name) if _os.path.isdir(output) else output
                     folder_to_mcpack(folder, out_path)
-            self.mcpacker_tab.set_status("Packing complete!")
+            self.mcpacker_tab.set_status(_tr("status.packing_complete", "Packing complete!"))
         else:
             for archive in items:
                 if _os.path.isfile(archive):
                     out_dir = output if _os.path.isdir(output) else _os.path.dirname(output)
                     recursive_extract_pack(archive, out_dir)
-            self.mcpacker_tab.set_status("Unpacking complete!")
+            self.mcpacker_tab.set_status(_tr("status.unpacking_complete", "Unpacking complete!"))
 
     # ──────────────────────────────────────────────────────────────────
     # LIST MAKER TAB
@@ -1729,11 +1829,12 @@ class AutoBEWindow(QMainWindow):
     def _list_maker_add(self):
         """Add files to the List Maker tab."""
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Select Pack Files", "",
-            "Minecraft Packs (*.mcpack *.mcaddon *.zip)")
+            self, _tr("filedialog.select_pack_files", "Select Pack Files"), "",
+            _tr("filedialog.pack_filter_short", "Minecraft Packs (*.mcpack *.mcaddon *.zip)"))
         for f in files:
             timestamp = _datetime.datetime.fromtimestamp(_os.path.getmtime(f))
-            item = QTreeWidgetItem([_os.path.basename(f), "Pack", timestamp.strftime("%Y-%m-%d %H:%M")])
+            item = QTreeWidgetItem([_os.path.basename(f), _tr("common.pack", "Pack"),
+                                    timestamp.strftime("%Y-%m-%d %H:%M")])
             self.list_maker_tab.file_tree.addTopLevelItem(item)
 
     def _list_maker_clear(self):
@@ -1757,28 +1858,32 @@ class AutoBEWindow(QMainWindow):
         for _, item in items:
             tree.addTopLevelItem(item)
 
-        self.list_maker_tab.set_status(f"Organized {len(items)} items by date")
+        self.list_maker_tab.set_status(_tr("status.organized_n_items", "Organized {n} items by date").format(n=len(items)))
 
     def _list_maker_export(self):
         """Export the list maker data to a file."""
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export List", "", "Text Files (*.txt);;CSV Files (*.csv)")
+            self, _tr("filedialog.export_list", "Export List"), "",
+            _tr("filedialog.export_filter", "Text Files (*.txt);;CSV Files (*.csv)"))
         if not path:
             return
 
-        import csv
         tree = self.list_maker_tab.file_tree
         try:
             with open(path, 'w', encoding='utf-8', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(["Filename", "Type", "Date Modified"])
+                writer = _csv.writer(f)
+                writer.writerow([_tr("list_maker.col.filename", "Filename"),
+                                 _tr("common.type", "Type"),
+                                 _tr("list_maker.col.date_modified", "Date Modified")])
                 for i in range(tree.topLevelItemCount()):
                     item = tree.topLevelItem(i)
                     if item:
                         writer.writerow([item.text(0), item.text(1), item.text(2)])
-            self.list_maker_tab.set_status(f"Exported to {_os.path.basename(path)}")
+            self.list_maker_tab.set_status(
+                _tr("status.exported_to", "Exported to {name}").format(name=_os.path.basename(path)))
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Failed to export: {e}")
+            QMessageBox.critical(self, _tr("msg.export_error", "Export Error"),
+                                 _tr("msg.export_failed", "Failed to export: {error}").format(error=e))
 
     # ──────────────────────────────────────────────────────────────────
     # HELP / ABOUT
@@ -1810,14 +1915,16 @@ class AutoBEWindow(QMainWindow):
 # ──────────────────────────────────────────────────────────────────────
 
 def _apply_fixers(fixers, pack_basename, filepath, content_bytes):
-    """Apply ExtendedBE fixers to a single file."""
+    """Apply ExtendedBE per-file fixers to a single file."""
     for mod in fixers:
         targets = getattr(mod, 'TARGETS', [])
-        import fnmatch
-        if not any(fnmatch.fnmatch(pack_basename, pat) for pat in targets):
+        if not any(_fnmatch.fnmatch(pack_basename, pat) for pat in targets):
+            continue
+        fix_fn = getattr(mod, 'fix', None)
+        if not callable(fix_fn):
             continue
         try:
-            result = mod.fix(pack_basename, filepath, content_bytes)
+            result = fix_fn(pack_basename, filepath, content_bytes)
             if result is None:
                 continue
             if isinstance(result, tuple):
@@ -1833,7 +1940,25 @@ def _apply_fixers(fixers, pack_basename, filepath, content_bytes):
     return filepath, content_bytes
 
 
+def _apply_pack_fixers(fixers, pack_basename, zip_file):
+    """Run pack-level fixers that need to scan the full pack (e.g. missing definitions)."""
+    rp_extra, bp_extra = {}, {}
+    for mod in fixers:
+        targets = getattr(mod, 'TARGETS', [])
+        if not any(_fnmatch.fnmatch(pack_basename, pat) for pat in targets):
+            continue
+        fix_pack_fn = getattr(mod, 'fix_pack', None)
+        if not callable(fix_pack_fn):
+            continue
+        try:
+            result = fix_pack_fn(pack_basename, zip_file) or {}
+            rp_extra.update(result.get('rp', {}))
+            bp_extra.update(result.get('bp', {}))
+        except Exception as e:
+            _logging.warning(f"[Fixer] Error in pack fixer '{getattr(mod, 'DESCRIPTION', mod.__name__)}': {e}")
+    return {'rp': rp_extra, 'bp': bp_extra}
+
+
 def _thread_is_main():
     """Return True if called from the main thread."""
-    import threading
-    return threading.current_thread() is threading.main_thread()
+    return _threading.current_thread() is _threading.main_thread()

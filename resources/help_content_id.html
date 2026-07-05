@@ -1,0 +1,132 @@
+<h1 style='color: #7CBD4D;'>Anvil-MC — User Guide</h1>
+<p style='color: #9A9A9A;'>Version 7.0.2 &middot; Minecraft Bedrock Edition addon combiner</p>
+
+<h2 style='color: #5CE3E6;'>What is Anvil-MC?</h2>
+<p>Anvil-MC takes several Bedrock behavior and resource packs and stitches them into
+a single, ready-to-use pair of output packs. Instead of merging everything by hand,
+it handles JSON combination, flags conflicts for you to resolve, joins scripts
+together, and applies compatibility repairs automatically.</p>
+
+<h2 style='color: #5CE3E6;'>Quick Start</h2>
+<ol>
+  <li><b>Load your packs</b> — Open the <i>Merger</i> tab and use <b>Add Files</b>
+      to pick <code>.mcpack</code>, <code>.mcaddon</code>, or <code>.zip</code>
+      archives. <b>Add Folder</b> lets you point at an already-unpacked pack.</li>
+  <li><b>Inspect first</b> — Hit <b>Check Packs</b> to preview how the selected
+      packs will be grouped by their <code>@minecraft/server</code> API version
+      and to see achievement compatibility before you commit.</li>
+  <li><b>Pick a destination</b> — Set the <b>Output Directory</b> where the
+      finished packs should land.</li>
+  <li><b>Run it</b> — Press <b>Start Merging</b>. The progress bar tracks each
+      stage, and <b>Cancel</b> is available if you need to abort.</li>
+</ol>
+
+<h2 style='color: #5CE3E6;'>How a Merge Works</h2>
+<p>Behind the scenes, a merge runs through these stages:</p>
+<ol>
+  <li><b>Intake</b> — Every pack is opened and checked for a valid manifest and
+      sane folder layout.</li>
+  <li><b>Version snapshot</b> — The highest format versions seen across all
+      inputs are recorded.</li>
+  <li><b>Achievement check</b> — Whether the result can stay achievement-friendly
+      is evaluated up front.</li>
+  <li><b>Combine</b> — Files are sorted into behavior/resource buckets, then
+      merged per type:</li>
+  <ul>
+    <li>JSON is united with conflict awareness.</li>
+    <li>Scripts are concatenated with duplicates stripped.</li>
+    <li><code>.lang</code> files are joined key by key.</li>
+    <li>Binary assets (textures, audio) follow a first-in wins rule.</li>
+    <li>Entities, items, and blocks are matched by identifier.</li>
+  </ul>
+  <li><b>Manifest</b> — One coherent manifest is written for each output pack.</li>
+  <li><b>Auto Fixers</b> — Addon-specific repairs are applied (optional).</li>
+  <li><b>Packaging</b> — Results are zipped and the workspace is cleaned up.</li>
+</ol>
+
+<h2 style='color: #5CE3E6;'>Resolving Identifier Clashes</h2>
+<p>If two sources define the same identifier (an entity, item, block, and so on),
+a dialog interrupts the merge so you can decide. Your options:</p>
+<ul>
+  <li><b>Deep merge</b> — Blend both definitions into one. Best when the two
+      entries are the BP and RP halves of the same addon.</li>
+  <li><b>Pick a winner</b> — Keep one pack's version and drop the other. Use this
+      when the definitions genuinely conflict.</li>
+</ul>
+
+<h2 style='color: #5CE3E6;'>Script API Version Groups</h2>
+<p>Addons that target different <code>@minecraft/server</code> versions can't share
+a single script environment. Anvil-MC detects this and splits the work into one
+output group per API version. Files that aren't version-sensitive — like
+<code>player.json</code> and HUD definitions — are shared across every group so
+nothing gets lost.</p>
+
+<h2 style='color: #5CE3E6;'>Subpack Variants</h2>
+<p>Some packs ship multiple subpack options (for example, low- and high-resolution
+texture sets). When Anvil-MC finds these, it asks which variant you want before
+continuing, so the merged output matches your target devices.</p>
+
+<h2 style='color: #5CE3E6;'>Auto Fixers</h2>
+<p>Toggle Auto Fixers from the <i>Settings</i> tab. When enabled, the framework
+repairs frequent addon headaches on the fly:</p>
+<ul>
+  <li>Converting legacy item and block formats</li>
+  <li>Filling in missing item or block definitions</li>
+  <li>Removing empty JSON files</li>
+  <li>Cleaning up placeholder animation controllers</li>
+  <li>Relocating misplaced files to their correct paths</li>
+  <li>Refreshing outdated sound definitions</li>
+  <li>&hellip;and other edge cases</li>
+</ul>
+
+<h2 style='color: #5CE3E6;'>MCPacker Tab</h2>
+<p>A standalone utility for repackaging loose folders. Choose <b>Pack</b> to turn a
+manifest-bearing folder into a <code>.mcpack</code>, or <b>Unpack</b> to do the
+reverse. Add the folders you want, set an output location, and press <b>Start</b>.</p>
+
+<h2 style='color: #5CE3E6;'>List Maker Tab</h2>
+<p>Use this tab to get a quick overview of a pile of pack files. <b>Organize by
+Date</b> sorts them chronologically and nests each under its Script API version
+group. <b>Export List</b> writes the resulting tree out to a file you can share
+or archive.</p>
+
+<h2 style='color: #5CE3E6;'>Settings Tab</h2>
+<p>Configure global behavior here:</p>
+<ul>
+  <li><b>Language</b> — Interface language (takes effect after restart).</li>
+  <li><b>Auto Fixers</b> — Turn the compatibility repair layer on or off.</li>
+  <li><b>Modpack organization</b> — Keep files grouped by their source pack in
+      the output.</li>
+  <li><b>Merge by version</b> — Split output by <code>@minecraft/server</code>
+      version instead of forcing a single target.</li>
+  <li><b>Customize dialog</b> — Pop up the pack customization window after each
+      merge completes.</li>
+  <li><b>Show linked packs</b> — Display linked pack relationships at the end of
+      a run.</li>
+  <li><b>Default output</b> — Pre-fill the output directory for every merge.</li>
+</ul>
+
+<h2 style='color: #5CE3E6;'>When Something Goes Wrong</h2>
+<p>If a merge fails, walk through these steps:</p>
+<ol>
+  <li>Read the message in the dialog — it usually names the offending pack.</li>
+  <li>Open <code>error_log.txt</code> in the app data folder for the full
+      traceback.</li>
+  <li>Confirm every input pack has a readable <code>manifest.json</code>.</li>
+  <li>Check that the output folder is writable and not full.</li>
+</ol>
+
+<h2 style='color: #5CE3E6;'>Tips for Smooth Merges</h2>
+<ul>
+  <li>Run <b>Check Packs</b> before committing — it catches version mismatches
+      early.</li>
+  <li>Prefer <b>Deep merge</b> for the BP/RP halves of one addon.</li>
+  <li>Glance over the merge log afterward for warnings about redeclared
+      variables.</li>
+  <li>Keep your source packs in dedicated folders so re-running a merge is
+      painless.</li>
+</ul>
+
+<hr style='border: 1px solid #3D3D3D;'>
+
+<p style='color: #606060;'><i>Anvil-MC &mdash; Bedrock addon merger and toolkit</i></p>
