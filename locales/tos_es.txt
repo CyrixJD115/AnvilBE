@@ -1,0 +1,119 @@
+ACUERDO DE LICENCIA DE SOFTWARE
+
+AutoBE por CodeNex
+
+Última actualización: 2026
+
+Este Acuerdo de Licencia de Software ("Acuerdo") es un contrato legalmente vinculante entre usted ("Usuario", "Licenciatario" o "usted") y CodeNex, un desarrollador de software con sede en Rockingham, Carolina del Norte, Estados Unidos ("CodeNex", "nosotros", "nos" o "nuestro"). Este Acuerdo rige la compra, descarga, instalación, acceso y uso del producto de software conocido como AutoBE ("Software").
+
+Al comprar, descargar, instalar o usar el Software, usted acepta estar sujeto a este Acuerdo. Si no está de acuerdo, no compre ni use el Software.
+
+⸻
+
+1. SIN AFILIACIÓN
+
+AutoBE es una herramienta de software independiente de terceros. CodeNex no está afiliado con, respaldado por ni asociado con Mojang Studios o Microsoft Corporation. Minecraft es una marca registrada de Microsoft Corporation y se menciona solo con fines descriptivos.
+
+⸻
+
+2. CONCESIÓN DE LICENCIA
+
+CodeNex le otorga una licencia no exclusiva, intransferible, revocable y limitada para instalar y usar el Software en un dispositivo compatible para fines personales de gestión de complementos.
+
+El Software se licencia, no se vende. Todos los derechos no expresamente concedidos están reservados por CodeNex.
+
+⸻
+
+3. RESTRICCIONES DE LA LICENCIA
+
+No podrá, directa o indirectamente:
+• Realizar ingeniería inversa, descompilar o desensamblar el Software
+• Modificar o crear obras derivadas del Software
+• Redistribuir, revender, sublicenciar, alquilar o compartir el Software o el acceso al mismo
+• Eliminar avisos de propiedad o marca
+• Usar el Software en violación de las leyes aplicables o de derechos de terceros
+• Usar el Software para redistribuir o monetizar complementos sin permiso adecuado
+
+La violación de estos términos puede resultar en la terminación de su licencia.
+
+⸻
+
+4. COMPLEMENTOS DE TERCEROS Y RESPONSABILIDAD DEL USUARIO
+
+AutoBE no incluye, distribuye ni licencia complementos de terceros.
+
+Usted es el único responsable de asegurar que tiene el derecho legal de usar, fusionar, modificar o distribuir cualquier complemento procesado con el Software. Los creadores de complementos conservan todos los derechos sobre su trabajo, y sus licencias individuales se aplican en todo momento.
+
+CodeNex no es responsable del uso indebido de complementos o de violaciones de licencias de terceros.
+
+⸻
+
+5. DURACIÓN Y TERMINACIÓN
+
+Este Acuerdo permanece en vigor hasta que se rescinda.
+
+CodeNex puede terminar su licencia si viola este Acuerdo. Tras la terminación, debe cesar todo uso del Software y eliminar todas las copias.
+
+La terminación por violación no le da derecho a un reembolso, excepto cuando lo exija la ley aplicable.
+
+⸻
+
+6. ENTREGA DIGITAL Y DERECHO DE DESISTIMIENTO (AVISO UE)
+
+Al comprar AutoBE, reconoce que el Software es contenido digital entregado de inmediato.
+
+Cuando la ley lo permita, usted consiente expresamente a la entrega inmediata y reconoce que esto puede limitar o eliminar los derechos legales de desistimiento una vez que la entrega haya comenzado.
+
+Esta sección no afecta los derechos obligatorios del consumidor según la ley aplicable.
+
+⸻
+
+7. REEMBOLSOS
+
+Todas las ventas son definitivas excepto cuando los reembolsos sean exigidos por la ley aplicable.
+
+Si tiene derecho a un reembolso según las leyes de protección al consumidor (por ejemplo, por contenido digital no conforme), dichos reembolsos se gestionarán de acuerdo con esas leyes.
+
+⸻
+
+8. EXENCIÓN DE GARANTÍAS
+
+El Software se proporciona "tal cual" y "según disponibilidad".
+
+En la máxima medida permitida por la ley, CodeNex renuncia a todas las garantías, expresas o implícitas.
+Esta exención no excluye las garantías legales que no pueden renunciarse según las leyes de protección al consumidor aplicables.
+
+⸻
+
+9. LIMITACIÓN DE RESPONSABILIDAD
+
+En la máxima medida permitida por la ley, CodeNex no será responsable por daños indirectos, incidentales o consecuentes derivados del uso del Software.
+
+Cuando la ley no permita excluir la responsabilidad, la responsabilidad total de CodeNex se limitará al importe pagado por el Software.
+
+⸻
+
+10. LEY APLICABLE
+
+Este Acuerdo se rige por las leyes del estado de Carolina del Norte, EE. UU., sin perjuicio de las leyes de protección al consumidor aplicables en su país de residencia.
+
+⸻
+
+11. NULIDAD PARCIAL
+
+Si alguna disposición se considera inaplicable, las demás disposiciones permanecerán en pleno vigor.
+
+⸻
+
+12. CONTACTO
+
+Consultas de soporte y licencias:
+📧 thebedrocklabhelp@gmail.com
+
+⸻
+
+CONFIRMACIÓN
+
+Al comprar o usar AutoBE, confirma que ha leído y comprendido este Acuerdo y acepta estar sujeto a sus términos.
+
+© 2024 CodeNex. Todos los derechos reservados.

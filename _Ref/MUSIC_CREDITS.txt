@@ -1,0 +1,13 @@
+AutoBE - Background Music Credit
+================================
+
+The optional background music feature can use royalty-free / non-copyright
+lofi music. If you use background music in AutoBE, please credit the source.
+
+Official credited track for AutoBE background music:
+  https://www.youtube.com/watch?v=XCFz3Xwx70Q
+
+Place a converted audio file (e.g. background.ogg or lofi.mp3) in the
+"music" folder next to AutoBE and enable "Play background music" in Settings.
+
+© AutoBE / CodeNex - Music source credited above.

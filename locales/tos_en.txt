@@ -1,0 +1,119 @@
+SOFTWARE LICENSE AGREEMENT
+
+AutoBE by CodeNex
+
+Last updated: 2026
+
+This Software License Agreement ("Agreement") is a legally binding contract between you ("User", "Licensee", or "you") and CodeNex, a software developer based in Rockingham, North Carolina, United States ("CodeNex", "we", "us", or "our"). This Agreement governs your purchase, download, installation, access to, and use of the software product known as AutoBE ("Software").
+
+By purchasing, downloading, installing, or using the Software, you agree to be bound by this Agreement. If you do not agree, do not purchase or use the Software.
+
+⸻
+
+1. NO AFFILIATION
+
+AutoBE is an independent third-party software tool. CodeNex is not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft Corporation. Minecraft is a trademark of Microsoft Corporation and is referenced for descriptive purposes only.
+
+⸻
+
+2. GRANT OF LICENSE
+
+CodeNex grants you a non-exclusive, non-transferable, revocable, limited license to install and use the Software on one compatible device for personal addon management purposes.
+
+The Software is licensed, not sold. All rights not expressly granted are reserved by CodeNex.
+
+⸻
+
+3. LICENSE RESTRICTIONS
+
+You may not, directly or indirectly:
+• Reverse engineer, decompile, or disassemble the Software
+• Modify or create derivative works of the Software
+• Redistribute, resell, sublicense, rent, or share the Software or access to it
+• Remove proprietary notices or branding
+• Use the Software in violation of applicable laws or third-party rights
+• Use the Software to redistribute or monetize addons without proper permission
+
+Violation of these terms may result in termination of your license.
+
+⸻
+
+4. THIRD-PARTY ADDONS & USER RESPONSIBILITY
+
+AutoBE does not include, distribute, or license any third-party addons.
+
+You are solely responsible for ensuring you have the legal right to use, merge, modify, or distribute any addons processed using the Software. Addon creators retain all rights to their work, and their individual licenses apply at all times.
+
+CodeNex is not responsible for misuse of addons or violations of third-party licenses.
+
+⸻
+
+5. TERM AND TERMINATION
+
+This Agreement remains effective until terminated.
+
+CodeNex may terminate your license if you violate this Agreement. Upon termination, you must cease all use of the Software and delete all copies.
+
+Termination for violation does not entitle you to a refund, except where required by applicable law.
+
+⸻
+
+6. DIGITAL DELIVERY & RIGHT OF WITHDRAWAL (EU NOTICE)
+
+By purchasing AutoBE, you acknowledge that the Software is digital content delivered immediately.
+
+Where permitted by law, you expressly consent to immediate delivery and acknowledge that this may limit or remove statutory withdrawal rights once delivery has begun.
+
+This section does not affect any mandatory consumer rights under applicable law.
+
+⸻
+
+7. REFUNDS
+
+All sales are final except where refunds are required by applicable law.
+
+If you are entitled to a refund under mandatory consumer protection laws (such as for non-conforming digital content), such refunds will be handled in accordance with those laws.
+
+⸻
+
+8. DISCLAIMER OF WARRANTIES
+
+The Software is provided "as is" and "as available".
+
+To the maximum extent permitted by law, CodeNex disclaims all warranties, express or implied.
+This disclaimer does not exclude statutory warranties that cannot be waived under applicable consumer protection laws.
+
+⸻
+
+9. LIMITATION OF LIABILITY
+
+To the maximum extent permitted by law, CodeNex shall not be liable for indirect, incidental, or consequential damages arising from use of the Software.
+
+Where liability cannot be excluded by law, CodeNex's total liability shall be limited to the amount paid for the Software.
+
+⸻
+
+10. GOVERNING LAW
+
+This Agreement is governed by the laws of the State of North Carolina, USA, without prejudice to mandatory consumer protection laws applicable in your country of residence.
+
+⸻
+
+11. SEVERABILITY
+
+If any provision is found unenforceable, the remaining provisions remain in full force.
+
+⸻
+
+12. CONTACT
+
+Support and licensing inquiries:
+📧 thebedrocklabhelp@gmail.com
+
+⸻
+
+ACKNOWLEDGMENT
+
+By purchasing or using AutoBE, you confirm that you have read and understood this Agreement and agree to be bound by its terms.
+
+© 2024 CodeNex. All rights reserved.
