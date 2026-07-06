@@ -41,7 +41,7 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install nuitka setuptools
+          pip install nuitka setuptools imageio
           pip install -e .
 
       - name: Build with Nuitka

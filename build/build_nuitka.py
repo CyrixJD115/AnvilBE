@@ -98,6 +98,14 @@ def build_macos():
         from PIL import Image
         img = Image.open(ROOT / "src" / "theme" / "anvil.ico")
         img.save(icon_png, format="PNG")
+    # Ensure imageio is available for Nuitka's PNG->ICNS conversion
+    try:
+        import imageio  # noqa: F401
+    except ImportError:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "imageio"],
+            cwd=ROOT,
+        )
 
     cmd = [
         sys.executable, "-m", "nuitka",
