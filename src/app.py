@@ -504,6 +504,27 @@ class AutoBEWindow(QMainWindow):
         self._out_dir = out_dir
         self._files = files
         self._output_format = self.merger_tab.get_output_format()
+
+        # Warn if merge_by_version is ON and format is .mcaddon
+        if getattr(self, 'merge_by_version', False) and self._output_format == 'mcaddon':
+            reply = QMessageBox.warning(
+                self,
+                _tr("msg.format_warning", "Format Warning"),
+                _tr("msg.mcaddon_version_conflict",
+                    "Merge by Version splits packs by script API version — each "
+                    "group produces separate BP and RP files.\n\n"
+                    "The .mcaddon format (which bundles RP+BP into one file) is "
+                    "not suitable here.\n\n"
+                    "Output will be switched to .mcpack (separate files)."),
+                QMessageBox.Ok | QMessageBox.Cancel,
+                QMessageBox.Ok
+            )
+            if reply == QMessageBox.Ok:
+                self._output_format = 'mcpack'
+                self.merger_tab.set_output_format('mcpack')
+            else:
+                return
+
         self._save_settings()
 
         # Disable UI during merge

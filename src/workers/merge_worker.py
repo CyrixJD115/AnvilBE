@@ -4,6 +4,8 @@ and communicates progress via Qt signals.
 """
 import logging as _logging
 import os as _os
+import shutil as _shutil
+import glob as _glob
 import traceback
 from PySide6.QtCore import QThread, Signal
 from src.core.i18n import _tr
@@ -126,7 +128,85 @@ class MergeWorkerThread(QThread):
 
             self._run_merge_pipeline(version_files, ver_out)
 
+        # Restructure output into flat behavior_packs/ and resource_packs/
+        self._restructure_version_output()
+
         self.app._out_dir = original_out_dir
+
+    def _restructure_version_output(self):
+        """After merge-by-version, reorganize per-version subdirectories into
+        two flat folders: behavior_packs/ and resource_packs/.
+
+        Removes the v*/ subdirectories after extracting the final pack files.
+        """
+        out = self.output_dir
+        bp_dir = _os.path.join(out, 'behavior_packs')
+        rp_dir = _os.path.join(out, 'resource_packs')
+        _os.makedirs(bp_dir, exist_ok=True)
+        _os.makedirs(rp_dir, exist_ok=True)
+
+        # Determine file extension from the output format
+        fmt = getattr(self.app, '_output_format', 'mcpack')
+        ext = '.zip' if fmt == 'zip' else '.mcpack'
+
+        bp_count = 0
+        rp_count = 0
+
+        for entry in sorted(_os.listdir(out)):
+            ver_path = _os.path.join(out, entry)
+            if not _os.path.isdir(ver_path) or not entry.startswith('v'):
+                continue
+
+            ver_label = entry  # e.g. "v2_1_0"
+
+            # Move behavior pack
+            bp_src = _os.path.join(ver_path, f'behavior_pack{ext}')
+            if _os.path.isfile(bp_src):
+                bp_dst = _os.path.join(bp_dir, f'behavior_pack_{ver_label}{ext}')
+                if _os.path.exists(bp_dst):
+                    _os.remove(bp_dst)
+                _shutil.move(bp_src, bp_dst)
+                bp_count += 1
+                _logging.info(f"Moved BP: {ver_label}/behavior_pack{ext} "
+                              f"-> behavior_packs/behavior_pack_{ver_label}{ext}")
+
+            # Move resource pack
+            rp_src = _os.path.join(ver_path, f'resource_pack{ext}')
+            if _os.path.isfile(rp_src):
+                rp_dst = _os.path.join(rp_dir, f'resource_pack_{ver_label}{ext}')
+                if _os.path.exists(rp_dst):
+                    _os.remove(rp_dst)
+                _shutil.move(rp_src, rp_dst)
+                rp_count += 1
+                _logging.info(f"Moved RP: {ver_label}/resource_pack{ext} "
+                              f"-> resource_packs/resource_pack_{ver_label}{ext}")
+
+            # Remove the now-empty version directory (and any leftovers)
+            try:
+                _shutil.rmtree(ver_path)
+            except Exception:
+                pass
+
+        # If there's exactly one RP, drop the version suffix for cleanliness
+        rp_files = sorted(_glob.glob(_os.path.join(rp_dir, f'resource_pack_*{ext}')))
+        if len(rp_files) == 1:
+            rp_final = _os.path.join(rp_dir, f'resource_pack{ext}')
+            if _os.path.exists(rp_final):
+                _os.remove(rp_final)
+            _shutil.move(rp_files[0], rp_final)
+            _logging.info(f"Single RP consolidated -> resource_packs/resource_pack{ext}")
+
+        # Same for a single BP
+        bp_files = sorted(_glob.glob(_os.path.join(bp_dir, f'behavior_pack_*{ext}')))
+        if len(bp_files) == 1:
+            bp_final = _os.path.join(bp_dir, f'behavior_pack{ext}')
+            if _os.path.exists(bp_final):
+                _os.remove(bp_final)
+            _shutil.move(bp_files[0], bp_final)
+            _logging.info(f"Single BP consolidated -> behavior_packs/behavior_pack{ext}")
+
+        _logging.info(f"Restructured output: {bp_count} BP(s) -> behavior_packs/, "
+                      f"{rp_count} RP(s) -> resource_packs/")
 
     # ── Steps 4-16: the actual merge + post-processing ──────────────
 
