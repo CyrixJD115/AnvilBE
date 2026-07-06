@@ -101,14 +101,13 @@ def build_macos():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
-        "--macos-create-app-bundle",
         "--assume-yes-for-downloads",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),
     ]
     print("Running Nuitka (macOS)...")
     subprocess.check_call(cmd, cwd=ROOT)
-    print(f"App bundle created at {out / f'{APP_NAME}.app'}")
+    print(f"Executable created at {out / APP_NAME}")
 
 
 def parse_args():
