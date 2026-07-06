@@ -54,7 +54,8 @@ def build_windows():
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
         f"--windows-icon-from-ico={ROOT / 'src' / 'theme' / 'anvil.ico'}",
-        "--windows-disable-console",
+        "--windows-console-mode=disable",
+        "--assume-yes-for-downloads",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),
     ]
