@@ -47,6 +47,18 @@ jobs:
       - name: Build with Nuitka
         run: python build/build_nuitka.py --macos --version ${{ inputs.version || '7.0.2' }}
 
+      - name: Prepare macOS artifact
+        shell: bash
+        run: |
+          echo "=== dist/macos contents ==="
+          ls -la dist/macos/ || true
+          if [ -d "dist/macos/main.app" ] && [ ! -d "dist/macos/Anvil-MC.app" ]; then
+            mv "dist/macos/main.app" "dist/macos/Anvil-MC.app"
+            echo "Renamed main.app -> Anvil-MC.app"
+          fi
+          echo "=== final contents ==="
+          ls -la dist/macos/ || true
+
       - name: Sanitize description for artifact name
         id: label
         shell: python

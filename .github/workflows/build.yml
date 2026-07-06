@@ -62,6 +62,19 @@ jobs:
       - name: Build with Nuitka
         run: python build/build_nuitka.py ${{ matrix.build_flag }}
 
+      - name: Prepare macOS artifact
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          echo "=== dist/macos contents ==="
+          ls -la dist/macos/ || true
+          if [ -d "dist/macos/main.app" ] && [ ! -d "dist/macos/Anvil-MC.app" ]; then
+            mv "dist/macos/main.app" "dist/macos/Anvil-MC.app"
+            echo "Renamed main.app -> Anvil-MC.app"
+          fi
+          echo "=== final contents ==="
+          ls -la dist/macos/ || true
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
