@@ -53,7 +53,7 @@ def build_windows():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
-        "--windows-icon-from-ico", str(ROOT / "src" / "theme" / "anvil.ico"),
+        f"--windows-icon-from-ico={ROOT / 'src' / 'theme' / 'anvil.ico'}",
         "--windows-disable-console",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),
