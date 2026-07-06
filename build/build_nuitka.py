@@ -109,7 +109,7 @@ def build_macos():
 
     cmd = [
         sys.executable, "-m", "nuitka",
-        "--onefile",
+        "--standalone",
         "--macos-create-app-bundle",
         f"--macos-app-icon={icon_png}",
         f"--output-dir={out}",
@@ -129,6 +129,9 @@ def build_macos():
     ]
     print("Running Nuitka (macOS)...")
     subprocess.check_call(cmd, cwd=ROOT)
+    # List output for debugging
+    for p in sorted(out.iterdir()):
+        print(f"  {p.name}")
     print(f"App bundle created at {out / f'{APP_NAME}.app'}")
 
 
