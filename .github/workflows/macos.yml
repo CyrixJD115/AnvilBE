@@ -1,0 +1,54 @@
+name: Build (macOS)
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 7.0.3)"
+        required: true
+        type: string
+      description:
+        description: "Build description (e.g. Hotfix memory leak)"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install system deps
+        run: |
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          brew install ccache
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install nuitka setuptools
+          pip install -e .
+
+      - name: Build with Nuitka
+        run: python build/build_nuitka.py --macos --version ${{ inputs.version || '7.0.2' }}
+
+      - name: Sanitize description for artifact name
+        id: label
+        shell: python
+        if: inputs.description != ''
+        run: |
+          import os, re
+          cleaned = re.sub(r'[^a-zA-Z0-9]+', '-', "${{ inputs.description }}").strip('-').lower()
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"suffix=-{cleaned}\n")
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Anvil-MC-macos-${{ inputs.version || '7.0.2' }}${{ steps.label.outputs.suffix }}
+          path: dist/macos/Anvil-MC
