@@ -38,7 +38,9 @@ jobs:
 
       - name: Install system deps (macOS)
         if: runner.os == 'macOS'
-        run: brew install ccache patchelf || true
+        run: |
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          brew install ccache
 
       - name: Install Python deps
         run: |

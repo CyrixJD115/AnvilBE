@@ -46,7 +46,9 @@ jobs:
 
       - name: Install system deps (macOS)
         if: runner.os == 'macOS'
-        run: brew install ccache patchelf || true
+        run: |
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          brew install ccache
 
       - name: Install Python deps
         run: |
@@ -59,14 +61,17 @@ jobs:
 
       - name: Sanitize description for artifact name
         id: label
+        shell: python
         run: |
-          desc="${{ inputs.description }}"
-          if [ -z "$desc" ]; then
-            echo "suffix=" >> $GITHUB_OUTPUT
-          else
-            cleaned=$(echo "$desc" | tr -cs '[:alnum:]' '-' | tr '[:upper:]' '[:lower:]')
-            echo "suffix=-$cleaned" >> $GITHUB_OUTPUT
-          fi
+          import os, re
+          desc = "${{ inputs.description }}"
+          if not desc:
+              suffix = ""
+          else:
+              cleaned = re.sub(r'[^a-zA-Z0-9]+', '-', desc).strip('-').lower()
+              suffix = f"-{cleaned}"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"suffix={suffix}\n")
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

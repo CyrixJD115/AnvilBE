@@ -78,6 +78,7 @@ def build_linux():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
+        "--assume-yes-for-downloads",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),
     ]
@@ -101,6 +102,7 @@ def build_macos():
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
         "--macos-create-app-bundle",
+        "--assume-yes-for-downloads",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),
     ]
