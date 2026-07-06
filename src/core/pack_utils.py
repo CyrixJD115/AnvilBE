@@ -152,7 +152,7 @@ def folder_to_mcpack(folder, out_mcpack_path, handle_subpacks=True):
 
             for file in files:
                 file_path = _os.path.join(root, file)
-                arcname = _os.path.relpath(file_path, folder)
+                arcname = _os.path.relpath(file_path, folder).replace('\\', '/')
                 zipf.write(file_path, arcname)
 
             # Handle subpacks separately in their own walk
@@ -162,7 +162,7 @@ def folder_to_mcpack(folder, out_mcpack_path, handle_subpacks=True):
                     for sub_root, sub_dirs, sub_files in _os.walk(subpacks_dir):
                         for sub_file in sub_files:
                             file_path = _os.path.join(sub_root, sub_file)
-                            arcname = _os.path.relpath(file_path, folder)
+                            arcname = _os.path.relpath(file_path, folder).replace('\\', '/')
                             zipf.write(file_path, arcname)
 
 
@@ -174,6 +174,7 @@ def zip_pack_folder(folder, output_mcpack_path):
             for file in files:
                 abs_path = _os.path.join(root, file)
                 arcname = _os.path.join(rel, file) if rel != '.' else file
+                arcname = arcname.replace('\\', '/')
                 zf.write(abs_path, arcname)
 
 
