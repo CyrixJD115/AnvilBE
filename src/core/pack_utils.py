@@ -143,39 +143,65 @@ def folder_to_mcpack(folder, out_mcpack_path, handle_subpacks=True):
     Zip a folder into .mcpack format.
     If *handle_subpacks* is True, subpacks/ directory is preserved as-is.
     """
+    entries = []
+    dir_prefixes = set()
+
+    def _add(abs_path):
+        arcname = _os.path.relpath(abs_path, folder).replace('\\', '/')
+        entries.append((abs_path, arcname))
+        parts = arcname.split('/')[:-1]
+        for i in range(len(parts)):
+            dir_prefixes.add('/'.join(parts[:i + 1]))
+
+    for root, dirs, files in _os.walk(folder):
+        if handle_subpacks and 'subpacks' in dirs:
+            dirs.remove('subpacks')
+        for file in files:
+            _add(_os.path.join(root, file))
+
+    if handle_subpacks:
+        subpacks_dir = _os.path.join(folder, 'subpacks')
+        if _os.path.isdir(subpacks_dir):
+            for sub_root, sub_dirs, sub_files in _os.walk(subpacks_dir):
+                for sub_file in sub_files:
+                    _add(_os.path.join(sub_root, sub_file))
+
+    seen = set()
     with _zipfile.ZipFile(out_mcpack_path, 'w', _zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in _os.walk(folder):
-            rel_root = _os.path.relpath(root, folder)
-
-            if handle_subpacks and 'subpacks' in dirs:
-                dirs.remove('subpacks')
-
-            for file in files:
-                file_path = _os.path.join(root, file)
-                arcname = _os.path.relpath(file_path, folder).replace('\\', '/')
-                zipf.write(file_path, arcname)
-
-            # Handle subpacks separately in their own walk
-            if handle_subpacks and rel_root == '.':
-                subpacks_dir = _os.path.join(folder, 'subpacks')
-                if _os.path.isdir(subpacks_dir):
-                    for sub_root, sub_dirs, sub_files in _os.walk(subpacks_dir):
-                        for sub_file in sub_files:
-                            file_path = _os.path.join(sub_root, sub_file)
-                            arcname = _os.path.relpath(file_path, folder).replace('\\', '/')
-                            zipf.write(file_path, arcname)
+        for abs_path, arcname in entries:
+            if arcname in dir_prefixes or arcname in seen:
+                continue
+            seen.add(arcname)
+            zipf.write(abs_path, arcname)
 
 
 def zip_pack_folder(folder, output_mcpack_path):
-    """Simple zip of a folder into a .mcpack file."""
+    """Simple zip of a folder into a .mcpack file.
+
+    Normalises all archive paths to forward slashes and skips entries that
+    would conflict with a directory path (e.g. a flat backslash-named file
+    like ``models\\entity`` colliding with ``models/entity/``).
+    """
+    entries = []
+    dir_prefixes = set()
+    for root, dirs, files in _os.walk(folder):
+        rel = _os.path.relpath(root, folder)
+        for file in files:
+            abs_path = _os.path.join(root, file)
+            arcname = _os.path.join(rel, file) if rel != '.' else file
+            arcname = arcname.replace('\\', '/')
+            entries.append((abs_path, arcname))
+            parts = arcname.split('/')[:-1]
+            for i in range(len(parts)):
+                dir_prefixes.add('/'.join(parts[:i + 1]))
+
+    seen = set()
     with _zipfile.ZipFile(output_mcpack_path, 'w', _zipfile.ZIP_DEFLATED) as zf:
-        for root, dirs, files in _os.walk(folder):
-            rel = _os.path.relpath(root, folder)
-            for file in files:
-                abs_path = _os.path.join(root, file)
-                arcname = _os.path.join(rel, file) if rel != '.' else file
-                arcname = arcname.replace('\\', '/')
-                zf.write(abs_path, arcname)
+        for abs_path, arcname in entries:
+            if arcname in dir_prefixes or arcname in seen:
+                continue
+            seen.add(arcname)
+            zf.write(abs_path, arcname)
 
 
 def find_valid_packs(entry, max_depth=10):
