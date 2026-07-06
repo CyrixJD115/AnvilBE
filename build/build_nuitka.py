@@ -106,6 +106,7 @@ def build_macos():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
+        "--macos-target-arch=arm64",
         "--assume-yes-for-downloads",
         f"--cache-dir={NUITKA_CACHE}",
         "--noinclude-pytest-mode=nofollow",
