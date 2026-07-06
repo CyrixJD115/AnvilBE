@@ -129,10 +129,15 @@ def build_macos():
     ]
     print("Running Nuitka (macOS)...")
     subprocess.check_call(cmd, cwd=ROOT)
+    # Nuitka names the .app after the main script (main.app); rename to APP_NAME
+    app_bundle = out / f"{APP_NAME}.app"
+    default_bundle = out / "main.app"
+    if default_bundle.exists() and not app_bundle.exists():
+        default_bundle.rename(app_bundle)
     # List output for debugging
     for p in sorted(out.iterdir()):
         print(f"  {p.name}")
-    print(f"App bundle created at {out / f'{APP_NAME}.app'}")
+    print(f"App bundle created at {app_bundle}")
 
 
 def parse_args():
