@@ -12,3 +12,5 @@ build/
 !build/*.bat
 .DS_Store
 *.log
+_Ref/
+_Split/
