@@ -99,6 +99,22 @@ def get_pack_manifest_data(file_path):
     return None
 
 
+def safe_extractall(zf, dest_dir):
+    """Like ZipFile.extractall, but normalises backslash paths to forward
+    slashes before extraction.
+
+    Source .mcpack files created on Windows may contain backslash separators
+    (e.g. ``models\\entity\\file.json``).  On Linux/macOS Python's
+    ``extractall`` treats ``\\`` as a literal filename character, producing
+    flat files instead of a proper directory tree.  This helper fixes every
+    ``ZipInfo.filename`` so that the correct directory structure is created
+    regardless of the host OS.
+    """
+    for member in zf.infolist():
+        member.filename = member.filename.replace('\\', '/')
+        zf.extract(member, dest_dir)
+
+
 def recursive_extract_pack(archive_path, dest_dir=None, max_depth=10):
     """
     Recursively extract nested .mcpack/.mcaddon/.zip files until a valid pack
@@ -115,7 +131,7 @@ def recursive_extract_pack(archive_path, dest_dir=None, max_depth=10):
 
     try:
         with _zipfile.ZipFile(archive_path, 'r') as z:
-            z.extractall(dest_dir)
+            safe_extractall(z, dest_dir)
     except Exception as e:
         _logging.warning(f"Failed to extract {archive_path}: {e}")
         return packs_found
@@ -228,7 +244,7 @@ def find_valid_packs(entry, max_depth=10):
         tempdir = _tempfile.mkdtemp(prefix='mcpacker_temp_')
         try:
             with _zipfile.ZipFile(entry, 'r') as z:
-                z.extractall(tempdir)
+                safe_extractall(z, tempdir)
             for item in _os.listdir(tempdir):
                 child_path = _os.path.join(tempdir, item)
                 found.extend(find_valid_packs(child_path, max_depth - 1))

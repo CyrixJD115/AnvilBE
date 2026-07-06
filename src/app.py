@@ -36,7 +36,8 @@ from src.core.i18n import _, _f, _tr, _init_translations, _tr_load
 from src.core.pack_utils import (
     is_pack_folder, has_pack_icon, validate_pack_folder,
     recursive_extract_pack, folder_to_mcpack, zip_pack_folder,
-    find_valid_packs, get_pack_manifest_data, get_pack_icon_from_zip
+    find_valid_packs, get_pack_manifest_data, get_pack_icon_from_zip,
+    safe_extractall
 )
 from src.core.merger import UniversalJsonMerger
 from src.core.identifier_manager import IdentifierManager
@@ -1398,7 +1399,7 @@ class AutoBEWindow(QMainWindow):
                 temp_dir = _tempfile.mkdtemp(prefix='manifest_')
                 try:
                     with _zipfile.ZipFile(zip_path, 'r') as z:
-                        z.extractall(temp_dir)
+                        safe_extractall(z, temp_dir)
                     m_path = _os.path.join(temp_dir, 'manifest.json')
                     with open(m_path, 'w', encoding='utf-8') as f:
                         _json.dump(manifest, f, indent=2)
@@ -1476,7 +1477,7 @@ class AutoBEWindow(QMainWindow):
                 try:
                     tmp = _tempfile.mkdtemp(prefix='rp_inject_')
                     with _zipfile.ZipFile(rp_zip, 'r') as z:
-                        z.extractall(tmp)
+                        safe_extractall(z, tmp)
                     dest = _os.path.join(tmp, 'textures', fname)
                     _os.makedirs(_os.path.dirname(dest), exist_ok=True)
                     _shutil.copy2(src, dest)
@@ -1499,7 +1500,7 @@ class AutoBEWindow(QMainWindow):
         try:
             tmp = _tempfile.mkdtemp(prefix='rp_finalize_')
             with _zipfile.ZipFile(rp_zip, 'r') as z:
-                z.extractall(tmp)
+                safe_extractall(z, tmp)
 
             # Remove behavior-side files (functions, entities, scripts) from RP
             for folder in ('functions', 'entities', 'scripts'):
@@ -1526,7 +1527,7 @@ class AutoBEWindow(QMainWindow):
         try:
             tmp = _tempfile.mkdtemp(prefix='bp_finalize_')
             with _zipfile.ZipFile(bp_zip, 'r') as z:
-                z.extractall(tmp)
+                safe_extractall(z, tmp)
 
             # Remove old scripts/subpacks from the temp
             for folder in ('scripts', 'subpacks'):
@@ -1630,7 +1631,7 @@ class AutoBEWindow(QMainWindow):
             try:
                 tmp = _tempfile.mkdtemp(prefix='tick_')
                 with _zipfile.ZipFile(bp_zip, 'r') as z:
-                    z.extractall(tmp)
+                    safe_extractall(z, tmp)
                 with open(_os.path.join(tmp, 'tick.json'), 'w', encoding='utf-8') as f:
                     _json.dump(merged, f, indent=2)
                 zip_pack_folder(tmp, bp_zip)
@@ -1756,13 +1757,13 @@ class AutoBEWindow(QMainWindow):
                 rp_dir = _os.path.join(tmp, 'resource_pack')
                 _os.makedirs(rp_dir, exist_ok=True)
                 with _zipfile.ZipFile(rp_zip, 'r') as z:
-                    z.extractall(rp_dir)
+                    safe_extractall(z, rp_dir)
                 _os.remove(rp_zip)
             if _os.path.isfile(bp_zip):
                 bp_dir = _os.path.join(tmp, 'behavior_pack')
                 _os.makedirs(bp_dir, exist_ok=True)
                 with _zipfile.ZipFile(bp_zip, 'r') as z:
-                    z.extractall(bp_dir)
+                    safe_extractall(z, bp_dir)
                 _os.remove(bp_zip)
 
             zip_pack_folder(tmp, mcaddon_path)
