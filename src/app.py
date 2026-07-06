@@ -540,7 +540,11 @@ class AutoBEWindow(QMainWindow):
             if dlg.exec() == QDialog.Accepted:
                 self._pack_customization = dlg.get_customization()
             else:
+                # User closed/cancelled the dialog — cancel the merge
                 self._pack_customization = None
+                self.merger_tab.set_merge_running(False)
+                self.mode_label.setText(_tr("status.ready", "Ready"))
+                return
         else:
             self._pack_customization = None
 
