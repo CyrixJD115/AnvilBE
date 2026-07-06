@@ -742,18 +742,9 @@ class AutoBEWindow(QMainWindow):
         """
         Main merge pipeline — processes all packs, extracts, categorizes,
         merges JSON, handles entities/items/blocks, and writes output.
-        If *merge_by_version* is enabled, files are grouped by @minecraft/server
-        version and each group is merged into a subdirectory.
+        Version grouping (if enabled) is handled by MergeWorkerThread,
+        which calls this method once per group with the correct output_dir.
         """
-        if self.merge_by_version:
-            groups = self._group_files_by_version(files)
-            for version, version_files in groups.items():
-                safe_ver = version.replace(' ', '_').replace('.', '_')
-                ver_out = _os.path.join(output_dir, f"v{safe_ver}")
-                _os.makedirs(ver_out, exist_ok=True)
-                self._merge_pack_group(version_files, ver_out)
-            return
-
         self._merge_pack_group(files, output_dir)
 
     def _group_files_by_version(self, files):
