@@ -29,7 +29,6 @@ DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "nuitka-work"
 
 VERSION = "7.0.2"
-NUITKA_CACHE = ROOT / "build" / "nuitka-cache"
 
 
 def clean():
@@ -57,7 +56,6 @@ def build_windows():
         f"--windows-icon-from-ico={ROOT / 'src' / 'theme' / 'anvil.ico'}",
         "--windows-console-mode=disable",
         "--assume-yes-for-downloads",
-        f"--cache-dir={NUITKA_CACHE}",
         "--noinclude-pytest-mode=nofollow",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),
@@ -82,7 +80,6 @@ def build_linux():
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
         "--assume-yes-for-downloads",
-        f"--cache-dir={NUITKA_CACHE}",
         "--noinclude-pytest-mode=nofollow",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),
@@ -108,7 +105,6 @@ def build_macos():
         "--include-package=src",
         "--macos-target-arch=arm64",
         "--assume-yes-for-downloads",
-        f"--cache-dir={NUITKA_CACHE}",
         "--noinclude-pytest-mode=nofollow",
         "--noinclude-default-mode=error",
         str(MAIN_SCRIPT),

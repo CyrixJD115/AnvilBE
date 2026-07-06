@@ -15,14 +15,17 @@ jobs:
             build_flag: --linux
             artifact_name: Anvil-MC-linux
             artifact_path: dist/linux/Anvil-MC
+            nuitka_cache: ~/.cache/Nuitka
           - os: macos-latest
             build_flag: --macos
             artifact_name: Anvil-MC-macos
             artifact_path: dist/macos/Anvil-MC
+            nuitka_cache: ~/Library/Caches/Nuitka
           - os: windows-latest
             build_flag: --windows
             artifact_name: Anvil-MC-windows
             artifact_path: dist/windows/Anvil-MC.exe
+            nuitka_cache: ~\AppData\Local\Nuitka
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -36,7 +39,7 @@ jobs:
       - name: Cache Nuitka
         uses: actions/cache@v4
         with:
-          path: build/nuitka-cache
+          path: ${{ matrix.nuitka_cache }}
           key: ${{ runner.os }}-nuitka-${{ hashFiles('pyproject.toml') }}
           restore-keys: ${{ runner.os }}-nuitka-
 
