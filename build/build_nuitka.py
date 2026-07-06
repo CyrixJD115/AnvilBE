@@ -8,6 +8,7 @@ Usage:
     python build/build_nuitka.py --linux            # force Linux build
     python build/build_nuitka.py --macos            # force macOS build
     python build/build_nuitka.py --clean            # clean build artifacts first
+    python build/build_nuitka.py --version 7.0.3    # override version number
 
 Requirements:
     pip install nuitka
@@ -27,6 +28,8 @@ MAIN_SCRIPT = ROOT / "main.py"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "nuitka-work"
 
+VERSION = "7.0.2"
+
 
 def clean():
     for d in [DIST_DIR, BUILD_DIR]:
@@ -43,7 +46,7 @@ def build_windows():
         f"--output-dir={out}",
         f"--output-filename={APP_NAME}.exe",
         f"--product-name={APP_NAME}",
-        f"--file-version=7.0.2",
+        f"--file-version={VERSION}",
         f"--file-description=Minecraft Bedrock Edition Addon Merger",
         "--enable-plugin=pyside6",
         f"--include-data-dir=resources=resources",
@@ -68,7 +71,7 @@ def build_linux():
         f"--output-dir={out}",
         f"--output-filename={APP_NAME}",
         f"--product-name={APP_NAME}",
-        f"--file-version=7.0.2",
+        f"--file-version={VERSION}",
         "--enable-plugin=pyside6",
         f"--include-data-dir=resources=resources",
         f"--include-data-dir=locales=locales",
@@ -90,7 +93,7 @@ def build_macos():
         f"--output-dir={out}",
         f"--output-filename={APP_NAME}",
         f"--product-name={APP_NAME}",
-        f"--file-version=7.0.2",
+        f"--file-version={VERSION}",
         "--enable-plugin=pyside6",
         f"--include-data-dir=resources=resources",
         f"--include-data-dir=locales=locales",
@@ -111,11 +114,16 @@ def parse_args():
     parser.add_argument("--linux", action="store_true", help="Build for Linux")
     parser.add_argument("--macos", action="store_true", help="Build for macOS")
     parser.add_argument("--clean", action="store_true", help="Remove previous build artifacts")
+    parser.add_argument("--version", default=None, help="Override version number")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    global VERSION
+    if args.version:
+        VERSION = args.version
 
     if args.clean:
         clean()

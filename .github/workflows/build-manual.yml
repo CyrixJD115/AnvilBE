@@ -1,0 +1,75 @@
+name: Build (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 7.0.3)"
+        required: true
+        type: string
+      description:
+        description: "Build description (e.g. Hotfix memory leak)"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            build_flag: --linux
+            artifact_name: Anvil-MC-linux
+            artifact_path: dist/linux/Anvil-MC
+          - os: macos-latest
+            build_flag: --macos
+            artifact_name: Anvil-MC-macos
+            artifact_path: dist/macos/Anvil-MC.app
+          - os: windows-latest
+            build_flag: --windows
+            artifact_name: Anvil-MC-windows
+            artifact_path: dist/windows/Anvil-MC.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt update && sudo apt install -y ccache python3-dev patchelf
+
+      - name: Install system deps (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ccache patchelf || true
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install nuitka setuptools
+          pip install -e .
+
+      - name: Build with Nuitka
+        run: python build/build_nuitka.py ${{ matrix.build_flag }} --version ${{ inputs.version }}
+
+      - name: Sanitize description for artifact name
+        id: label
+        run: |
+          desc="${{ inputs.description }}"
+          if [ -z "$desc" ]; then
+            echo "suffix=" >> $GITHUB_OUTPUT
+          else
+            cleaned=$(echo "$desc" | tr -cs '[:alnum:]' '-' | tr '[:upper:]' '[:lower:]')
+            echo "suffix=-$cleaned" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-${{ inputs.version }}${{ steps.label.outputs.suffix }}
+          path: ${{ matrix.artifact_path }}
