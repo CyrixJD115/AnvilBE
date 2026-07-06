@@ -103,7 +103,7 @@ def build_macos():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
-        "--macos-target-arch=universal",
+        "--macos-target-arch=arm64",
         "--assume-yes-for-downloads",
         "--noinclude-pytest-mode=nofollow",
         "--noinclude-default-mode=error",
