@@ -91,9 +91,19 @@ def build_linux():
 
 def build_macos():
     out = DIST_DIR / "macos"
+
+    # Convert .ico to .png for macOS app icon
+    icon_png = ROOT / "src" / "theme" / "anvil.png"
+    if not icon_png.exists():
+        from PIL import Image
+        img = Image.open(ROOT / "src" / "theme" / "anvil.ico")
+        img.save(icon_png, format="PNG")
+
     cmd = [
         sys.executable, "-m", "nuitka",
         "--onefile",
+        "--macos-create-app-bundle",
+        f"--macos-app-icon={icon_png}",
         f"--output-dir={out}",
         f"--output-filename={APP_NAME}",
         f"--product-name={APP_NAME}",
@@ -111,7 +121,7 @@ def build_macos():
     ]
     print("Running Nuitka (macOS)...")
     subprocess.check_call(cmd, cwd=ROOT)
-    print(f"Executable created at {out / APP_NAME}")
+    print(f"App bundle created at {out / f'{APP_NAME}.app'}")
 
 
 def parse_args():

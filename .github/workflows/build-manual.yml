@@ -27,7 +27,7 @@ jobs:
           - os: macos-latest
             build_flag: --macos
             artifact_name: Anvil-MC-macos
-            artifact_path: dist/macos/Anvil-MC
+            artifact_path: dist/macos/Anvil-MC.app
             nuitka_cache: ~/Library/Caches/Nuitka
           - os: windows-latest
             build_flag: --windows

@@ -60,4 +60,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Anvil-MC-macos-${{ inputs.version || '7.0.2' }}${{ steps.label.outputs.suffix }}
-          path: dist/macos/Anvil-MC
+          path: dist/macos/Anvil-MC.app
