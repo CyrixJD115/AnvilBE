@@ -70,5 +70,5 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: Anvil-MC-linux-${{ inputs.version || steps.version.outputs.version_clean }}${{ steps.label.outputs.suffix }}
+          name: Anvil-MC-linux-${{ inputs.version || steps.version.outputs.version }}${{ steps.label.outputs.suffix }}
           path: dist/linux/Anvil-MC

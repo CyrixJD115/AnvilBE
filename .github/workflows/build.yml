@@ -90,5 +90,5 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.artifact_name }}-${{ steps.version.outputs.version_clean }}
+          name: ${{ matrix.artifact_name }}-${{ steps.version.outputs.version }}
           path: ${{ matrix.artifact_path }}

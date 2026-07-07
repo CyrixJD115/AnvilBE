@@ -114,5 +114,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.artifact_name }}-${{ (inputs.version || steps.version.outputs.version_clean) }}${{ steps.label.outputs.suffix }}
+          name: ${{ matrix.artifact_name }}-${{ (inputs.version || steps.version.outputs.version) }}${{ steps.label.outputs.suffix }}
           path: ${{ matrix.artifact_path }}
