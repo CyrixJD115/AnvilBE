@@ -29,9 +29,8 @@ Structural renames:
   events section          -> REMOVED (no longer needed without event triggers)
 """
 
-import json as _json
-import re as _re
-
+import json
+import re
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Upgrade old block definitions to 1.20.10 (strip experimental event triggers)"
 
@@ -187,7 +186,7 @@ def fix(pack_name, filepath, content):
     if "/blocks/" not in fp and not fp.startswith("blocks/"):
         return None
     try:
-        data = _json.loads(content.decode("utf-8", errors="ignore"))
+        data = json.loads(content.decode("utf-8", errors="ignore"))
     except Exception:
         return None
 
@@ -237,4 +236,4 @@ def fix(pack_name, filepath, content):
         return None
 
     data["format_version"] = "1.20.10"
-    return _json.dumps(data, indent=2).encode("utf-8")
+    return json.dumps(data, indent=2).encode("utf-8")

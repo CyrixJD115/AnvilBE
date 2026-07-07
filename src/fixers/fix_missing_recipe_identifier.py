@@ -13,8 +13,7 @@ is missing or has no identifier, inject one derived from the filename stem.
   e.g.  recipes/sb_emerald_gun.json  →  identifier "sb_emerald_gun"
 """
 
-import json as _json
-
+import json
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Add missing description.identifier to recipe files"
 
@@ -39,7 +38,7 @@ def fix(pack_name, filepath, content):
         return None
 
     try:
-        data = _json.loads(content.decode("utf-8", errors="ignore"))
+        data = json.loads(content.decode("utf-8", errors="ignore"))
     except Exception:
         return None
 
@@ -64,7 +63,7 @@ def fix(pack_name, filepath, content):
                 "unlock": [{"context": "AlwaysUnlocked"}],
             },
         }
-        return _json.dumps(dummy, indent=2).encode("utf-8")
+        return json.dumps(dummy, indent=2).encode("utf-8")
 
     desc = recipe_body.get("description")
     modified = False
@@ -86,4 +85,4 @@ def fix(pack_name, filepath, content):
     if not modified:
         return None
 
-    return _json.dumps(data, indent=2).encode("utf-8")
+    return json.dumps(data, indent=2).encode("utf-8")

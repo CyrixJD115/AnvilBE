@@ -24,10 +24,9 @@ Algorithm:
   the injected one.
 """
 
-import json as _json
-import re as _re
-import logging as _log
-
+import json
+import re
+import logging
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Stub out empty animation_controllers files from entity client file refs"
 
@@ -49,7 +48,7 @@ def fix_pack(pack_basename, zip_file):
         if not name.endswith(".json"):
             continue
         try:
-            d = _json.loads(zip_file.read(name).decode("utf-8", errors="ignore"))
+            d = json.loads(zip_file.read(name).decode("utf-8", errors="ignore"))
         except Exception:
             continue
 
@@ -72,7 +71,7 @@ def fix_pack(pack_basename, zip_file):
             continue
 
         # Key 1: file stem  (e.g. "R/entity/sb_iron_golem.json" → "sb_iron_golem")
-        file_stem = _re.sub(r"\.entity\.json$|\.json$", "", name.rsplit("/", 1)[-1])
+        file_stem = re.sub(r"\.entity\.json$|\.json$", "", name.rsplit("/", 1)[-1])
         entity_ctrls[file_stem] = entity_ctrls.get(file_stem, frozenset()) | ctrl_ids
 
         # Key 2: identifier-derived name  ("sb:iron_golem" → "sb_iron_golem")
@@ -93,7 +92,7 @@ def fix_pack(pack_basename, zip_file):
             continue
 
         try:
-            d = _json.loads(zip_file.read(name).decode("utf-8", errors="ignore"))
+            d = json.loads(zip_file.read(name).decode("utf-8", errors="ignore"))
         except Exception:
             continue
 
@@ -112,7 +111,7 @@ def fix_pack(pack_basename, zip_file):
             continue
 
         file_base = fp.rsplit("/", 1)[-1]
-        stem = _re.sub(
+        stem = re.sub(
             r"\.animation_controllers\.json$|_animation_controllers\.json$|\.json$",
             "", file_base
         )
@@ -126,7 +125,7 @@ def fix_pack(pack_basename, zip_file):
             for ctrl_id in sorted(ctrls)
         }
 
-        out_bytes = _json.dumps(
+        out_bytes = json.dumps(
             {"format_version": "1.10.0", "animation_controllers": ac_out},
             indent=2
         ).encode("utf-8")
@@ -143,5 +142,5 @@ def fix(pack_name, filepath, content):
     stub = _pending_stubs.get(fp)
     if stub is None:
         return None
-    _log.info(f"[Fixer] {fp}: {DESCRIPTION} ({len(_json.loads(stub.decode())['animation_controllers'])} controllers)")
+    logging.info(f"[Fixer] {fp}: {DESCRIPTION} ({len(json.loads(stub.decode())['animation_controllers'])} controllers)")
     return stub

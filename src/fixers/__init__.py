@@ -47,7 +47,7 @@ EXAMPLE
         return text.encode("utf-8")
 """
 
-import os as _os
+import os
 import importlib.util as _importlib_util
 
 
@@ -58,14 +58,14 @@ def load_fixers(extendedbe_dir=None):
     and a non-empty TARGETS list.
     """
     if extendedbe_dir is None:
-        extendedbe_dir = _os.path.dirname(_os.path.abspath(__file__))
+        extendedbe_dir = os.path.dirname(os.path.abspath(__file__))
 
     fixers = []
     try:
-        for fname in sorted(_os.listdir(extendedbe_dir)):
+        for fname in sorted(os.listdir(extendedbe_dir)):
             if fname.startswith('_') or not fname.endswith('.py'):
                 continue
-            fpath = _os.path.join(extendedbe_dir, fname)
+            fpath = os.path.join(extendedbe_dir, fname)
             try:
                 spec = _importlib_util.spec_from_file_location(
                     f'fixers.{fname[:-3]}', fpath)

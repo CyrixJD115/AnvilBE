@@ -2,25 +2,25 @@
 Pack utilities for Minecraft Bedrock Edition addon management.
 Handles pack validation, recursive extraction, and ZIP creation.
 """
-import os as _os
-import zipfile as _zipfile
-import json as _json
-import shutil as _shutil
-import tempfile as _tempfile
-import re as _re
-import logging as _logging
+import os
+import zipfile
+import json
+import shutil
+import tempfile
+import re
+import logging
 from src.core.file_utils import read_text_file_utf8_strip_bom, strip_bom
 
 
 def is_pack_folder(folder):
     """Return True if *folder* contains manifest.json at its root and has a pack_icon."""
-    return _os.path.isfile(_os.path.join(folder, 'manifest.json')) and has_pack_icon(folder)
+    return os.path.isfile(os.path.join(folder, 'manifest.json')) and has_pack_icon(folder)
 
 
 def has_pack_icon(folder):
     """Check if a folder has a valid pack icon (png/jpg/jpeg)."""
     for ext in ['.png', '.jpg', '.jpeg']:
-        if _os.path.isfile(_os.path.join(folder, f'pack_icon{ext}')):
+        if os.path.isfile(os.path.join(folder, f'pack_icon{ext}')):
             return True
     return False
 
@@ -30,17 +30,17 @@ def validate_pack_folder(folder_path):
     Validate that a folder is a valid Minecraft pack.
     Returns (is_valid: bool, reason: str).
     """
-    manifest_path = _os.path.join(folder_path, 'manifest.json')
-    if not _os.path.isfile(manifest_path):
+    manifest_path = os.path.join(folder_path, 'manifest.json')
+    if not os.path.isfile(manifest_path):
         return False, "manifest.json not found"
 
     if not has_pack_icon(folder_path):
-        _logging.warning(f"Pack folder {folder_path} missing pack_icon")
+        logging.warning(f"Pack folder {folder_path} missing pack_icon")
 
     try:
         content = read_text_file_utf8_strip_bom(manifest_path)
-        cleaned = _re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=_re.MULTILINE | _re.DOTALL)
-        manifest = _json.loads(cleaned)
+        cleaned = re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=re.MULTILINE | re.DOTALL)
+        manifest = json.loads(cleaned)
 
         if 'format_version' not in manifest:
             return False, "manifest.json missing format_version"
@@ -50,7 +50,7 @@ def validate_pack_folder(folder_path):
             return False, "manifest.json missing or empty modules"
 
         return True, "Valid pack"
-    except _json.JSONDecodeError as e:
+    except json.JSONDecodeError as e:
         return False, f"Invalid JSON in manifest.json: {e}"
     except Exception as e:
         return False, f"Error validating pack: {e}"
@@ -58,10 +58,10 @@ def validate_pack_folder(folder_path):
 
 def _try_json_loads(content: str):
     """Parse JSON string, with json5 fallback."""
-    cleaned = _re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=_re.MULTILINE | _re.DOTALL)
+    cleaned = re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=re.MULTILINE | re.DOTALL)
     try:
-        return _json.loads(cleaned)
-    except _json.JSONDecodeError:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
         try:
             import json5
             return json5.loads(cleaned)
@@ -72,14 +72,14 @@ def _try_json_loads(content: str):
 def get_pack_manifest_data(file_path):
     """Extract and parse manifest.json from a pack file or folder."""
     try:
-        if _os.path.isdir(file_path):
-            manifest_path = _os.path.join(file_path, 'manifest.json')
-            if _os.path.isfile(manifest_path):
+        if os.path.isdir(file_path):
+            manifest_path = os.path.join(file_path, 'manifest.json')
+            if os.path.isfile(manifest_path):
                 content = read_text_file_utf8_strip_bom(manifest_path)
                 return _try_json_loads(content)
             return None
 
-        with _zipfile.ZipFile(file_path, 'r') as pack_zip:
+        with zipfile.ZipFile(file_path, 'r') as pack_zip:
             manifest_path = None
             for name in pack_zip.namelist():
                 name_lower = name.lower()
@@ -95,7 +95,7 @@ def get_pack_manifest_data(file_path):
                     content = f.read().decode('utf-8', errors='ignore')
                     return _try_json_loads(content)
     except Exception as e:
-        _logging.warning(f"Error reading manifest from {file_path}: {e}")
+        logging.warning(f"Error reading manifest from {file_path}: {e}")
     return None
 
 
@@ -125,15 +125,15 @@ def recursive_extract_pack(archive_path, dest_dir=None, max_depth=10):
         return []
 
     if dest_dir is None:
-        dest_dir = _tempfile.mkdtemp(prefix='mcpack_unpack_')
+        dest_dir = tempfile.mkdtemp(prefix='mcpack_unpack_')
 
     packs_found = []
 
     try:
-        with _zipfile.ZipFile(archive_path, 'r') as z:
+        with zipfile.ZipFile(archive_path, 'r') as z:
             safe_extractall(z, dest_dir)
     except Exception as e:
-        _logging.warning(f"Failed to extract {archive_path}: {e}")
+        logging.warning(f"Failed to extract {archive_path}: {e}")
         return packs_found
 
     # Check if dest_dir itself is a valid pack
@@ -142,13 +142,13 @@ def recursive_extract_pack(archive_path, dest_dir=None, max_depth=10):
         return packs_found
 
     # Scan contents for nested archives or pack folders
-    for entry in _os.listdir(dest_dir):
-        entry_path = _os.path.join(dest_dir, entry)
+    for entry in os.listdir(dest_dir):
+        entry_path = os.path.join(dest_dir, entry)
 
-        if _os.path.isfile(entry_path) and entry.lower().endswith(('.mcpack', '.mcaddon', '.zip')):
-            sub_dir = _tempfile.mkdtemp(prefix='mcpack_unpack_')
+        if os.path.isfile(entry_path) and entry.lower().endswith(('.mcpack', '.mcaddon', '.zip')):
+            sub_dir = tempfile.mkdtemp(prefix='mcpack_unpack_')
             packs_found.extend(recursive_extract_pack(entry_path, dest_dir=sub_dir, max_depth=max_depth - 1))
-        elif _os.path.isdir(entry_path) and is_pack_folder(entry_path):
+        elif os.path.isdir(entry_path) and is_pack_folder(entry_path):
             packs_found.append(entry_path)
 
     return packs_found
@@ -163,27 +163,27 @@ def folder_to_mcpack(folder, out_mcpack_path, handle_subpacks=True):
     dir_prefixes = set()
 
     def _add(abs_path):
-        arcname = _os.path.relpath(abs_path, folder).replace('\\', '/')
+        arcname = os.path.relpath(abs_path, folder).replace('\\', '/')
         entries.append((abs_path, arcname))
         parts = arcname.split('/')[:-1]
         for i in range(len(parts)):
             dir_prefixes.add('/'.join(parts[:i + 1]))
 
-    for root, dirs, files in _os.walk(folder):
+    for root, dirs, files in os.walk(folder):
         if handle_subpacks and 'subpacks' in dirs:
             dirs.remove('subpacks')
         for file in files:
-            _add(_os.path.join(root, file))
+            _add(os.path.join(root, file))
 
     if handle_subpacks:
-        subpacks_dir = _os.path.join(folder, 'subpacks')
-        if _os.path.isdir(subpacks_dir):
-            for sub_root, sub_dirs, sub_files in _os.walk(subpacks_dir):
+        subpacks_dir = os.path.join(folder, 'subpacks')
+        if os.path.isdir(subpacks_dir):
+            for sub_root, sub_dirs, sub_files in os.walk(subpacks_dir):
                 for sub_file in sub_files:
-                    _add(_os.path.join(sub_root, sub_file))
+                    _add(os.path.join(sub_root, sub_file))
 
     seen = set()
-    with _zipfile.ZipFile(out_mcpack_path, 'w', _zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(out_mcpack_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for abs_path, arcname in entries:
             if arcname in dir_prefixes or arcname in seen:
                 continue
@@ -200,11 +200,11 @@ def zip_pack_folder(folder, output_mcpack_path):
     """
     entries = []
     dir_prefixes = set()
-    for root, dirs, files in _os.walk(folder):
-        rel = _os.path.relpath(root, folder)
+    for root, dirs, files in os.walk(folder):
+        rel = os.path.relpath(root, folder)
         for file in files:
-            abs_path = _os.path.join(root, file)
-            arcname = _os.path.join(rel, file) if rel != '.' else file
+            abs_path = os.path.join(root, file)
+            arcname = os.path.join(rel, file) if rel != '.' else file
             arcname = arcname.replace('\\', '/')
             entries.append((abs_path, arcname))
             parts = arcname.split('/')[:-1]
@@ -212,7 +212,7 @@ def zip_pack_folder(folder, output_mcpack_path):
                 dir_prefixes.add('/'.join(parts[:i + 1]))
 
     seen = set()
-    with _zipfile.ZipFile(output_mcpack_path, 'w', _zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(output_mcpack_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for abs_path, arcname in entries:
             if arcname in dir_prefixes or arcname in seen:
                 continue
@@ -230,28 +230,28 @@ def find_valid_packs(entry, max_depth=10):
     if max_depth < 1:
         return []
 
-    if _os.path.isdir(entry):
+    if os.path.isdir(entry):
         if is_pack_folder(entry):
             found.append(entry)
             return found
-        for child in _os.listdir(entry):
-            child_path = _os.path.join(entry, child)
+        for child in os.listdir(entry):
+            child_path = os.path.join(entry, child)
             found.extend(find_valid_packs(child_path, max_depth - 1))
         return found
 
-    ext = _os.path.splitext(entry)[1].lower()
+    ext = os.path.splitext(entry)[1].lower()
     if ext in ('.mcpack', '.mcaddon', '.zip'):
-        tempdir = _tempfile.mkdtemp(prefix='mcpacker_temp_')
+        tempdir = tempfile.mkdtemp(prefix='mcpacker_temp_')
         try:
-            with _zipfile.ZipFile(entry, 'r') as z:
+            with zipfile.ZipFile(entry, 'r') as z:
                 safe_extractall(z, tempdir)
-            for item in _os.listdir(tempdir):
-                child_path = _os.path.join(tempdir, item)
+            for item in os.listdir(tempdir):
+                child_path = os.path.join(tempdir, item)
                 found.extend(find_valid_packs(child_path, max_depth - 1))
             if is_pack_folder(tempdir):
                 found.append(tempdir)
         except Exception as e:
-            _logging.warning(f"Failed to unzip {entry}: {e}")
+            logging.warning(f"Failed to unzip {entry}: {e}")
 
     return found
 
@@ -261,17 +261,17 @@ def get_pack_icon_from_zip(zip_file, zip_path=None):
     Extract pack_icon.png (or .jpg/.jpeg) bytes from a ZipFile or folder.
     Returns (bytes, ext) or (None, None).
     """
-    if zip_path and _os.path.isdir(zip_path):
+    if zip_path and os.path.isdir(zip_path):
         for ext in ['.png', '.jpg', '.jpeg']:
-            icon_path = _os.path.join(zip_path, f'pack_icon{ext}')
-            if _os.path.isfile(icon_path):
+            icon_path = os.path.join(zip_path, f'pack_icon{ext}')
+            if os.path.isfile(icon_path):
                 with open(icon_path, 'rb') as f:
                     return f.read(), ext
         return None, None
 
     for name in zip_file.namelist():
-        base = _os.path.basename(name)
+        base = os.path.basename(name)
         if base.startswith('pack_icon') and base.endswith(('.png', '.jpg', '.jpeg')):
-            ext = _os.path.splitext(base)[1]
+            ext = os.path.splitext(base)[1]
             return zip_file.read(name), ext
     return None, None

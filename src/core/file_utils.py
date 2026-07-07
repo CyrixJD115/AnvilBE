@@ -2,12 +2,10 @@
 File I/O utilities for Minecraft pack handling.
 Provides BOM stripping, safe decoding, and robust file read/write helpers.
 """
-import os as _os
-import json as _json
-import logging as _logging
-import re as _re
-
-
+import os
+import json
+import logging
+import re
 def strip_bom(text):
     """Strip Unicode BOM (\\ufeff) and UTF-8 BOM interpreted as latin-1 (\\xef\\xbb\\xbf)."""
     if text.startswith('\ufeff'):
@@ -47,8 +45,8 @@ def read_json_safe(path):
     """Read and parse a JSON file, stripping comments first."""
     try:
         content = read_text_file_utf8_strip_bom(path)
-        cleaned = _re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=_re.MULTILINE | _re.DOTALL)
-        return _json.loads(cleaned)
+        cleaned = re.sub(r'//.*?$|/\*.*?\*/', '', content, flags=re.MULTILINE | re.DOTALL)
+        return json.loads(cleaned)
     except Exception as e:
-        _logging.warning(f"Failed to read JSON from {path}: {e}")
+        logging.warning(f"Failed to read JSON from {path}: {e}")
         return None

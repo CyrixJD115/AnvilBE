@@ -15,8 +15,7 @@ Component changes applied:
                                   item_texture.json keys  ("sb:x" -> "sb_x")
 """
 
-import json as _json
-
+import json
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Upgrade old item definitions to 1.20.50 format"
 
@@ -47,7 +46,7 @@ def fix(pack_name, filepath, content):
     if "/items/" not in fp and not fp.startswith("items/"):
         return None
     try:
-        data = _json.loads(content.decode("utf-8", errors="ignore"))
+        data = json.loads(content.decode("utf-8", errors="ignore"))
     except Exception:
         return None
 
@@ -125,4 +124,4 @@ def fix(pack_name, filepath, content):
     changed = True
 
     data["format_version"] = "1.20.50"
-    return _json.dumps(data, indent=2).encode("utf-8")
+    return json.dumps(data, indent=2).encode("utf-8")

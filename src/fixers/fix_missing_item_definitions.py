@@ -13,8 +13,7 @@ system). Modern Bedrock dropped this in favour of BP item definitions alone;
 the leftover RP items confuse the modern validator.
 """
 
-import json as _json
-
+import json
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Create missing BP item definitions for recipe results; remove obsolete RP item files"
 
@@ -35,7 +34,7 @@ def fix_pack(pack_basename, zip_file):
     bp_item_ids = set()
     for name in _find_all(names, '/items/'):
         try:
-            d = _json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
+            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
             iid = (d.get('minecraft:item') or {}).get('description', {}).get('identifier', '')
             if iid:
                 bp_item_ids.add(iid)
@@ -46,7 +45,7 @@ def fix_pack(pack_basename, zip_file):
     bp_block_ids = set()
     for name in _find_all(names, '/blocks/'):
         try:
-            d = _json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
+            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
             bid = (d.get('minecraft:block') or {}).get('description', {}).get('identifier', '')
             if bid:
                 bp_block_ids.add(bid)
@@ -59,7 +58,7 @@ def fix_pack(pack_basename, zip_file):
         base = name.rsplit('/', 1)[-1]
         if base == 'blocks.json' and '/blocks/' not in name:
             try:
-                rb = _json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
+                rb = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
                 if isinstance(rb, dict):
                     for bid in rb:
                         if ':' in bid and not bid.startswith('minecraft:'):
@@ -72,7 +71,7 @@ def fix_pack(pack_basename, zip_file):
     recipe_result_ids = set()
     for name in _find_all(names, '/recipes/'):
         try:
-            d = _json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
+            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
             for recipe_type in ('minecraft:recipe_shaped', 'minecraft:recipe_shapeless',
                                 'minecraft:recipe_furnace', 'minecraft:recipe_brewing_mix',
                                 'minecraft:recipe_brewing_container'):
@@ -109,12 +108,12 @@ def fix_pack(pack_basename, zip_file):
             }
         }
         safe_name = item_name.replace(':', '_')
-        new_bp_files[f"items/{namespace}_{safe_name}.json"] = _json.dumps(item_def, indent=2).encode('utf-8')
+        new_bp_files[f"items/{namespace}_{safe_name}.json"] = json.dumps(item_def, indent=2).encode('utf-8')
 
     # Remove obsolete old-format RP item definitions that have a modern BP counterpart
     for name in _find_all(names, '/items/'):
         try:
-            d = _json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
+            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
             fv = str(d.get('format_version', ''))
             iid = (d.get('minecraft:item') or {}).get('description', {}).get('identifier', '')
             if fv in _OLD_RP_ITEM_VERSIONS and iid and iid in bp_item_ids:

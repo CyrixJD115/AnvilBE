@@ -2,10 +2,9 @@
 Internationalization (i18n) system for Anvil-MC.
 Loads JSON locale files and provides translation lookup functions.
 """
-import os as _os
-import json as _json
-import sys as _sys
-
+import os
+import json
+import sys
 _TRANSLATIONS = {}
 _CURRENT_LANG = "en"
 
@@ -22,8 +21,8 @@ _LANG_NAMES = {
 }
 
 # Determine the base directory (works for both source and frozen builds)
-_BASE_DIR = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-_LOCALE_DIR = _os.path.join(_BASE_DIR, "locales")
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_LOCALE_DIR = os.path.join(_BASE_DIR, "locales")
 
 
 def available_languages():
@@ -33,8 +32,8 @@ def available_languages():
     """
     result = []
     try:
-        if _os.path.isdir(_LOCALE_DIR):
-            for fname in _os.listdir(_LOCALE_DIR):
+        if os.path.isdir(_LOCALE_DIR):
+            for fname in os.listdir(_LOCALE_DIR):
                 if fname.lower().endswith('.json'):
                     code = fname[:-5]
                     result.append((code, _LANG_NAMES.get(code, code)))
@@ -50,11 +49,11 @@ def _tr_load(lang):
     """Load a locale JSON into the translations cache. Falls back to 'en' if missing."""
     global _CURRENT_LANG
     _CURRENT_LANG = (lang or "en").lower()
-    path = _os.path.join(_LOCALE_DIR, _CURRENT_LANG + ".json")
+    path = os.path.join(_LOCALE_DIR, _CURRENT_LANG + ".json")
     try:
         with open(path, 'r', encoding='utf-8') as f:
             _TRANSLATIONS.clear()
-            _TRANSLATIONS.update(_json.load(f))
+            _TRANSLATIONS.update(json.load(f))
     except Exception:
         if (lang or "").lower() != "en":
             _tr_load("en")
@@ -72,13 +71,13 @@ def help_content_path(lang=None, resources_dir=None):
     ``help_content.html`` (English) when a localized file is absent.
     """
     lang = (lang or _CURRENT_LANG or "en").lower()
-    base = _os.path.join(_BASE_DIR, "resources")
+    base = os.path.join(_BASE_DIR, "resources")
     if resources_dir:
         base = resources_dir
-    localized = _os.path.join(base, f"help_content_{lang}.html")
-    if _os.path.isfile(localized):
+    localized = os.path.join(base, f"help_content_{lang}.html")
+    if os.path.isfile(localized):
         return localized
-    return _os.path.join(base, "help_content.html")
+    return os.path.join(base, "help_content.html")
 
 
 def _(key):

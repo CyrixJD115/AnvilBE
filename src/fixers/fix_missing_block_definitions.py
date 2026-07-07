@@ -15,8 +15,7 @@ custom block to also have a behavior-pack definition in blocks/<name>.json.
 This fixer auto-generates the minimal skeleton so Bedrock registers the block.
 """
 
-import json as _json
-
+import json
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Create missing BP block definitions for blocks declared in RP blocks.json"
 
@@ -36,7 +35,7 @@ def fix_pack(pack_basename, zip_file):
         return None
 
     try:
-        rp_blocks = _json.loads(zip_file.read(rp_blocks_path).decode('utf-8', errors='ignore'))
+        rp_blocks = json.loads(zip_file.read(rp_blocks_path).decode('utf-8', errors='ignore'))
     except Exception:
         return None
     if not isinstance(rp_blocks, dict):
@@ -49,7 +48,7 @@ def fix_pack(pack_basename, zip_file):
         if '/blocks/' not in name or not name.endswith('.json'):
             continue
         try:
-            d = _json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
+            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
             bid = (d.get('minecraft:block') or {}).get('description', {}).get('identifier', '')
             if bid:
                 existing_block_ids.add(bid)
@@ -74,7 +73,7 @@ def fix_pack(pack_basename, zip_file):
         }
         safe_name = block_name.replace(':', '_')
         file_path = f"blocks/{namespace}_{safe_name}.json"
-        new_bp_files[file_path] = _json.dumps(block_def, indent=2).encode('utf-8')
+        new_bp_files[file_path] = json.dumps(block_def, indent=2).encode('utf-8')
 
     if not new_bp_files:
         return None

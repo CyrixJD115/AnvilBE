@@ -9,8 +9,7 @@ Two fixes applied:
      Bedrock replacement that IS valid in entity events.
 """
 
-import json as _json
-
+import json
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Fix run_command in entity events: remove empty, rename non-empty to queue_command"
 
@@ -40,7 +39,7 @@ def fix(pack_name, filepath, content):
     if '/entities/' not in fp and not fp.startswith('entities/'):
         return None
     try:
-        data = _json.loads(content.decode("utf-8", errors="ignore"))
+        data = json.loads(content.decode("utf-8", errors="ignore"))
     except Exception:
         return None
 
@@ -64,4 +63,4 @@ def fix(pack_name, filepath, content):
 
     if not changed:
         return None
-    return _json.dumps(data, indent=2).encode("utf-8")
+    return json.dumps(data, indent=2).encode("utf-8")

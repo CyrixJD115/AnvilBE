@@ -14,10 +14,8 @@ Merge strategies:
 - Lists: Concatenate with duplicate detection
 - Dicts: Recursive merge
 """
-import re as _re
-import logging as _logging
-
-
+import re
+import logging
 class UniversalJsonMerger:
     """
     Intelligent JSON merger with context-aware strategies based on file structure.
@@ -78,20 +76,20 @@ class UniversalJsonMerger:
                 merged = self._fallback_merge(merged, json_obj)
 
         if self.conflicts:
-            _logging.warning(f"Merge conflicts detected in {file_path}: {len(self.conflicts)} conflict(s)")
+            logging.warning(f"Merge conflicts detected in {file_path}: {len(self.conflicts)} conflict(s)")
             for conflict in self.conflicts:
-                _logging.warning(f"  - {conflict}")
+                logging.warning(f"  - {conflict}")
         if self.warnings:
-            _logging.warning(f"Merge warnings in {file_path}: {len(self.warnings)} warning(s)")
+            logging.warning(f"Merge warnings in {file_path}: {len(self.warnings)} warning(s)")
             for warning in self.warnings:
-                _logging.warning(f"  - {warning}")
+                logging.warning(f"  - {warning}")
 
         # Apply universal compatibility patches if available
         if self._universal_patcher:
             merged = self._universal_patcher.patch_merged_file(merged, json_list, file_path)
             patches = self._universal_patcher.get_patch_report()
             if patches:
-                _logging.info(f"Applied {len(patches)} universal compatibility patch(es) to {file_path}")
+                logging.info(f"Applied {len(patches)} universal compatibility patch(es) to {file_path}")
 
         return merged
 
@@ -206,7 +204,7 @@ class UniversalJsonMerger:
         variables = {}
         for item in script_list:
             if isinstance(item, str):
-                match = _re.search(r'(?:variable|v)\.(\w+)\s*=\s*(.+)', item)
+                match = re.search(r'(?:variable|v)\.(\w+)\s*=\s*(.+)', item)
                 if match:
                     variables[match.group(1)] = match.group(2).strip()
         return variables

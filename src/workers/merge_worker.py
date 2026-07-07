@@ -2,13 +2,13 @@
 MergeWorkerThread — runs the complete merge pipeline in a background thread
 and communicates progress via Qt signals.
 """
-import json as _json
-import logging as _logging
-import os as _os
-import re as _re
-import shutil as _shutil
+import json
+import logging
+import os
+import re
+import shutil
 import traceback
-import zipfile as _zipfile
+import zipfile
 from PySide6.QtCore import QThread, Signal
 from src.core.i18n import _tr
 from src.core.pack_utils import safe_extractall, zip_pack_folder
@@ -68,7 +68,7 @@ class MergeWorkerThread(QThread):
                                           "All packs merged successfully!"))
 
         except Exception as e:
-            _logging.error(f"Error during processing: {e}", exc_info=True)
+            logging.error(f"Error during processing: {e}", exc_info=True)
             self.error.emit(str(e))
             self.finished.emit(False, f"An error occurred: {e}")
 
@@ -109,15 +109,14 @@ class MergeWorkerThread(QThread):
 
     def _run_merge_by_version(self):
         """Group files by version and run the full pipeline per group."""
-        import uuid as _uuid
-
+        import uuid
         groups = self.app._group_files_by_version(self.files)
         original_out_dir = self.app._out_dir
         total = len(groups)
 
         # Pre-generate a single RP UUID so all BP groups can depend on it
-        self.app._pre_generated_rp_uuid = str(_uuid.uuid4())
-        self.app._pre_generated_rp_module_uuid = str(_uuid.uuid4())
+        self.app._pre_generated_rp_uuid = str(uuid.uuid4())
+        self.app._pre_generated_rp_module_uuid = str(uuid.uuid4())
         # Collect BP UUIDs as they're created
         self.app._all_bp_uuids = []
 
@@ -126,8 +125,8 @@ class MergeWorkerThread(QThread):
                 break
 
             safe_ver = version.replace(' ', '_').replace('.', '_')
-            ver_out = _os.path.join(self.output_dir, f"v{safe_ver}")
-            _os.makedirs(ver_out, exist_ok=True)
+            ver_out = os.path.join(self.output_dir, f"v{safe_ver}")
+            os.makedirs(ver_out, exist_ok=True)
             self.app._out_dir = ver_out
 
             # Store this group's script API version for manifest dependencies
@@ -140,7 +139,7 @@ class MergeWorkerThread(QThread):
             self.status_update.emit(
                 f"[{label}] Processing version group {idx + 1}/{total}..."
             )
-            _logging.info(f"=== Merge by version: group {idx + 1}/{total} "
+            logging.info(f"=== Merge by version: group {idx + 1}/{total} "
                           f"({label}, {len(version_files)} packs) ===")
 
             self._run_merge_pipeline(version_files, ver_out)
@@ -162,48 +161,47 @@ class MergeWorkerThread(QThread):
     def _link_rp_to_all_bps(self):
         """After all groups are processed, update the RP manifest to include
         dependencies on every BP UUID so activating the RP auto-loads all BPs."""
-        import zipfile as _zipfile2
-        import json as _json2
-        import tempfile as _tempfile2
-
+        import zipfile
+        import json
+        import tempfile
         bp_uuids = getattr(self.app, '_all_bp_uuids', [])
         if not bp_uuids:
             return
 
         # Find the RP file across all version subdirectories
-        for entry in sorted(_os.listdir(self.output_dir)):
-            ver_path = _os.path.join(self.output_dir, entry)
-            if not _os.path.isdir(ver_path) or not entry.startswith('v'):
+        for entry in sorted(os.listdir(self.output_dir)):
+            ver_path = os.path.join(self.output_dir, entry)
+            if not os.path.isdir(ver_path) or not entry.startswith('v'):
                 continue
 
             fmt = getattr(self.app, '_output_format', 'mcpack')
             ext = '.zip' if fmt == 'zip' else '.mcpack'
-            rp_file = _os.path.join(ver_path, f'resource_pack{ext}')
-            if not _os.path.isfile(rp_file):
+            rp_file = os.path.join(ver_path, f'resource_pack{ext}')
+            if not os.path.isfile(rp_file):
                 continue
 
-            tmp = _tempfile2.mkdtemp(prefix='rplink_')
+            tmp = tempfile.mkdtemp(prefix='rplink_')
             try:
-                with _zipfile2.ZipFile(rp_file, 'r') as z:
+                with zipfile.ZipFile(rp_file, 'r') as z:
                     safe_extractall(z, tmp)
-                mpath = _os.path.join(tmp, 'manifest.json')
-                if _os.path.isfile(mpath):
+                mpath = os.path.join(tmp, 'manifest.json')
+                if os.path.isfile(mpath):
                     with open(mpath, 'r', encoding='utf-8') as f:
-                        mdata = _json2.load(f)
+                        mdata = json.load(f)
                     deps = mdata.get('dependencies', [])
                     for bp_uuid in bp_uuids:
                         if not any(d.get('uuid') == bp_uuid for d in deps):
                             deps.append({"uuid": bp_uuid, "version": [1, 0, 0]})
                     mdata['dependencies'] = deps
                     with open(mpath, 'w', encoding='utf-8') as f:
-                        _json2.dump(mdata, f, indent=2)
+                        json.dump(mdata, f, indent=2)
                     zip_pack_folder(tmp, rp_file)
-                    _logging.info(f"Updated RP manifest with {len(bp_uuids)} BP dependencies")
+                    logging.info(f"Updated RP manifest with {len(bp_uuids)} BP dependencies")
             except Exception as e:
-                _logging.warning(f"Failed to link RP to BPs: {e}")
+                logging.warning(f"Failed to link RP to BPs: {e}")
             finally:
                 try:
-                    _shutil.rmtree(tmp)
+                    shutil.rmtree(tmp)
                 except Exception:
                     pass
 
@@ -216,10 +214,10 @@ class MergeWorkerThread(QThread):
         Removes the v*/ subdirectories after extracting the final pack files.
         """
         out = self.output_dir
-        bp_dir = _os.path.join(out, 'behavior_packs')
-        rp_dir = _os.path.join(out, 'resource_packs')
-        _os.makedirs(bp_dir, exist_ok=True)
-        _os.makedirs(rp_dir, exist_ok=True)
+        bp_dir = os.path.join(out, 'behavior_packs')
+        rp_dir = os.path.join(out, 'resource_packs')
+        os.makedirs(bp_dir, exist_ok=True)
+        os.makedirs(rp_dir, exist_ok=True)
 
         fmt = getattr(self.app, '_output_format', 'mcpack')
         ext = '.zip' if fmt == 'zip' else '.mcpack'
@@ -227,9 +225,9 @@ class MergeWorkerThread(QThread):
         def _read_pack_name(pack_path):
             """Read pack name from manifest.json inside a .mcpack/.zip."""
             try:
-                with _zipfile.ZipFile(pack_path, 'r') as z:
+                with zipfile.ZipFile(pack_path, 'r') as z:
                     with z.open('manifest.json') as f:
-                        manifest = _json.load(f)
+                        manifest = json.load(f)
                         name = manifest.get('header', {}).get('name', '')
                         return name if name else 'MergedPack'
             except Exception:
@@ -237,7 +235,7 @@ class MergeWorkerThread(QThread):
 
         def _sanitize(name):
             """Sanitize pack name for use in filenames."""
-            return _re.sub(r'[^a-zA-Z0-9_\-]', '_', name).strip('_') or 'MergedPack'
+            return re.sub(r'[^a-zA-Z0-9_\-]', '_', name).strip('_') or 'MergedPack'
 
         def _version_from_dir(dirname):
             """Convert 'v2_1_0' -> '2.1.0'; 'vunknown' -> None."""
@@ -250,43 +248,43 @@ class MergeWorkerThread(QThread):
         bp_count = 0
         rp_count = 0
 
-        for entry in sorted(_os.listdir(out)):
-            ver_path = _os.path.join(out, entry)
-            if not _os.path.isdir(ver_path) or not entry.startswith('v'):
+        for entry in sorted(os.listdir(out)):
+            ver_path = os.path.join(out, entry)
+            if not os.path.isdir(ver_path) or not entry.startswith('v'):
                 continue
 
             version = _version_from_dir(entry)
             ver_suffix = f'_{version}' if version else ''
 
             # Move behavior pack
-            bp_src = _os.path.join(ver_path, f'behavior_pack{ext}')
-            if _os.path.isfile(bp_src):
+            bp_src = os.path.join(ver_path, f'behavior_pack{ext}')
+            if os.path.isfile(bp_src):
                 name = _sanitize(_read_pack_name(bp_src))
-                bp_dst = _os.path.join(bp_dir, f'{name}{ver_suffix}_BP{ext}')
-                if _os.path.exists(bp_dst):
-                    _os.remove(bp_dst)
-                _shutil.move(bp_src, bp_dst)
+                bp_dst = os.path.join(bp_dir, f'{name}{ver_suffix}_BP{ext}')
+                if os.path.exists(bp_dst):
+                    os.remove(bp_dst)
+                shutil.move(bp_src, bp_dst)
                 bp_count += 1
-                _logging.info(f"Moved BP -> behavior_packs/{name}{ver_suffix}_BP{ext}")
+                logging.info(f"Moved BP -> behavior_packs/{name}{ver_suffix}_BP{ext}")
 
             # Move resource pack
-            rp_src = _os.path.join(ver_path, f'resource_pack{ext}')
-            if _os.path.isfile(rp_src):
+            rp_src = os.path.join(ver_path, f'resource_pack{ext}')
+            if os.path.isfile(rp_src):
                 name = _sanitize(_read_pack_name(rp_src))
-                rp_dst = _os.path.join(rp_dir, f'{name}{ver_suffix}_RP{ext}')
-                if _os.path.exists(rp_dst):
-                    _os.remove(rp_dst)
-                _shutil.move(rp_src, rp_dst)
+                rp_dst = os.path.join(rp_dir, f'{name}{ver_suffix}_RP{ext}')
+                if os.path.exists(rp_dst):
+                    os.remove(rp_dst)
+                shutil.move(rp_src, rp_dst)
                 rp_count += 1
-                _logging.info(f"Moved RP -> resource_packs/{name}{ver_suffix}_RP{ext}")
+                logging.info(f"Moved RP -> resource_packs/{name}{ver_suffix}_RP{ext}")
 
             # Remove the now-empty version directory (and any leftovers)
             try:
-                _shutil.rmtree(ver_path)
+                shutil.rmtree(ver_path)
             except Exception:
                 pass
 
-        _logging.info(f"Restructured output: {bp_count} BP(s) -> behavior_packs/, "
+        logging.info(f"Restructured output: {bp_count} BP(s) -> behavior_packs/, "
                       f"{rp_count} RP(s) -> resource_packs/")
 
     # ── Steps 4-16: the actual merge + post-processing ──────────────

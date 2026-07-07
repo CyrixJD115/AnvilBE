@@ -10,8 +10,7 @@ replace them with a minimal valid skeleton so Bedrock silently ignores them
 instead of logging errors.
 """
 
-import json as _json
-
+import json
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Replace empty {} placeholder JSON files with valid minimal skeletons"
 
@@ -23,7 +22,7 @@ def fix(pack_name, filepath, content):
     if not filepath.endswith(".json"):
         return None
     try:
-        data = _json.loads(content.decode("utf-8", errors="ignore"))
+        data = json.loads(content.decode("utf-8", errors="ignore"))
     except Exception:
         return None
     if data:
@@ -31,9 +30,9 @@ def fix(pack_name, filepath, content):
 
     fp = filepath.replace('\\', '/')
     if '/recipes/' in fp or fp.startswith('recipes/'):
-        return _json.dumps(_RECIPE_SKELETON, indent=2).encode("utf-8")
+        return json.dumps(_RECIPE_SKELETON, indent=2).encode("utf-8")
 
     if '/animation_controllers/' in fp or fp.startswith('animation_controllers/'):
-        return _json.dumps(_ANIM_CTRL_SKELETON, indent=2).encode("utf-8")
+        return json.dumps(_ANIM_CTRL_SKELETON, indent=2).encode("utf-8")
 
     return None

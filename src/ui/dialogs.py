@@ -2,8 +2,8 @@
 Custom dialogs for Anvil-MC.
 Includes conflict resolution, subpack selection, version check, pack customization, and about dialogs.
 """
-import os as _os
-import re as _re
+import os
+import re
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton,
     QRadioButton, QButtonGroup, QGroupBox,
@@ -74,7 +74,7 @@ class ConflictResolutionDialog(QDialog):
             radios = {None: rb_keep_all}
 
             for pack_path in pack_paths:
-                pack_name = _os.path.basename(pack_path)
+                pack_name = os.path.basename(pack_path)
                 rb = QRadioButton(_tr("conflict.keep", "Keep: {name}").format(name=pack_name))
                 rb.setStyleSheet("color: #C6C6C6;")
                 btn_group.addButton(rb)
@@ -266,8 +266,8 @@ class VersionCheckDialog(QDialog):
         if v == "No Script API":
             return (1, ())
         parts = []
-        for p in _re.split(r'[.\-]', str(v)):
-            m = _re.match(r'(\d+)', p)
+        for p in re.split(r'[.\-]', str(v)):
+            m = re.match(r'(\d+)', p)
             parts.append(int(m.group(1)) if m else 0)
         return (0, tuple(parts))
 
@@ -431,7 +431,7 @@ class PackCustomizationDialog(QDialog):
             _tr("customize.images_filter", "Images (*.png *.jpg *.jpeg)"))
         if path:
             self._custom_icon_path = path
-            self._icon_path_label.setText(_os.path.basename(path))
+            self._icon_path_label.setText(os.path.basename(path))
             pix = QPixmap(path)
             if not pix.isNull():
                 self._icon_preview.setPixmap(

@@ -3,10 +3,10 @@ IdentifierManager — scans packs for identifier conflicts (entities, items, blo
 loot tables, recipes, animation/render controllers) and provides conflict resolution
 with automatic namespace-based prefixing and reference updating.
 """
-import os as _os
-import json as _json
-import re as _re
-import logging as _logging
+import os
+import json
+import re
+import logging
 from collections import defaultdict
 
 
@@ -81,7 +81,7 @@ class IdentifierManager:
                         self._extract_render_controller_identifiers(pack_zip, item_name))
 
         except Exception as e:
-            _logging.warning(f"Error scanning identifiers in {pack_path}: {e}")
+            logging.warning(f"Error scanning identifiers in {pack_path}: {e}")
 
         return identifiers
 
@@ -110,9 +110,9 @@ class IdentifierManager:
         try:
             with pack_zip.open(item_name) as f:
                 content = f.read().decode('utf-8', errors='ignore')
-                content = _re.sub(r'//.*?$|/\*.*?\*/', '', content,
-                                  flags=_re.MULTILINE | _re.DOTALL)
-                data = _json.loads(content)
+                content = re.sub(r'//.*?$|/\*.*?\*/', '', content,
+                                  flags=re.MULTILINE | re.DOTALL)
+                data = json.loads(content)
                 for key in keys:
                     if key in data:
                         desc = data[key].get('description', {})
@@ -141,9 +141,9 @@ class IdentifierManager:
         try:
             with pack_zip.open(item_name) as f:
                 content = f.read().decode('utf-8', errors='ignore')
-                content = _re.sub(r'//.*?$|/\*.*?\*/', '', content,
-                                  flags=_re.MULTILINE | _re.DOTALL)
-                data = _json.loads(content)
+                content = re.sub(r'//.*?$|/\*.*?\*/', '', content,
+                                  flags=re.MULTILINE | re.DOTALL)
+                data = json.loads(content)
                 for key in data:
                     if 'recipe' in key.lower():
                         recipe_data = data[key]
@@ -169,9 +169,9 @@ class IdentifierManager:
         try:
             with pack_zip.open(item_name) as f:
                 content = f.read().decode('utf-8', errors='ignore')
-                content = _re.sub(r'//.*?$|/\*.*?\*/', '', content,
-                                  flags=_re.MULTILINE | _re.DOTALL)
-                data = _json.loads(content)
+                content = re.sub(r'//.*?$|/\*.*?\*/', '', content,
+                                  flags=re.MULTILINE | re.DOTALL)
+                data = json.loads(content)
                 for key in data:
                     if ':' in key:
                         identifiers.add(key)
@@ -195,20 +195,20 @@ class IdentifierManager:
                     self.conflict_map[identifier].add(pack_path)
 
         for idx, pack_path in enumerate(all_pack_identifiers.keys()):
-            pack_name = _os.path.basename(pack_path).replace('.mcpack', '').replace('.mcaddon', '')
-            clean_name = _re.sub(r'[^a-zA-Z0-9_]', '_', pack_name)[:20]
+            pack_name = os.path.basename(pack_path).replace('.mcpack', '').replace('.mcaddon', '')
+            clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', pack_name)[:20]
             self.pack_namespaces[pack_path] = f"{clean_name}_merge"
 
     @staticmethod
     def _pack_base_name(pack_path):
         """Strip suffixes so BP/RP halves of the same addon compare equal."""
-        name = _os.path.basename(pack_path)
-        name = _re.sub(r'\.(mcpack|mcaddon)$', '', name, flags=_re.IGNORECASE)
-        name = _re.sub(r'_modified$', '', name, flags=_re.IGNORECASE)
-        name = _re.sub(r'_\d+$', '', name)
-        name = _re.sub(
+        name = os.path.basename(pack_path)
+        name = re.sub(r'\.(mcpack|mcaddon)$', '', name, flags=re.IGNORECASE)
+        name = re.sub(r'_modified$', '', name, flags=re.IGNORECASE)
+        name = re.sub(r'_\d+$', '', name)
+        name = re.sub(
             r'[_\-\s]*(bp|rp|behaviors?|resources?|behavior[_\-]?pack|resource[_\-]?pack)$',
-            '', name, flags=_re.IGNORECASE)
+            '', name, flags=re.IGNORECASE)
         return name.lower()
 
     def get_conflict_list(self):
@@ -247,7 +247,7 @@ class IdentifierManager:
                 for pack_path in pack_paths:
                     self.identifier_mapping[(pack_path, identifier)] = identifier
 
-        _logging.info(f"Generated {len(self.identifier_mapping)} identifier mappings")
+        logging.info(f"Generated {len(self.identifier_mapping)} identifier mappings")
 
     def get_new_identifier(self, pack_path, old_identifier):
         """Get the new identifier for a given pack and old identifier."""
@@ -284,4 +284,4 @@ class IdentifierManager:
         def repl(m):
             return self.get_new_identifier(pack_path, m.group(1))
 
-        return _re.sub(pattern, repl, text)
+        return re.sub(pattern, repl, text)

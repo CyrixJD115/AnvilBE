@@ -8,8 +8,7 @@ Errors this silences:
   [Sound][error] - Expected "key" expression for entity with sound variants
 """
 
-import json as _json
-
+import json
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Remove invalid/outdated sound event names from sounds.json"
 
@@ -38,7 +37,7 @@ def fix(pack_name, filepath, content):
     if filepath != "sounds.json":
         return None
     try:
-        data = _json.loads(content.decode("utf-8", errors="ignore"))
+        data = json.loads(content.decode("utf-8", errors="ignore"))
     except Exception:
         return None
 
@@ -68,4 +67,4 @@ def fix(pack_name, filepath, content):
 
     if not changed:
         return None
-    return _json.dumps(data, indent=3).encode("utf-8")
+    return json.dumps(data, indent=3).encode("utf-8")
