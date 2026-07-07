@@ -14,3 +14,4 @@ build/
 *.log
 _Ref/
 _Split/
+_pack_test/
