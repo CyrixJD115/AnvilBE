@@ -72,6 +72,11 @@ jobs:
           echo "=== final contents ==="
           ls -la dist/macos/ || true
 
+      - name: Code sign .app (ad-hoc)
+        shell: bash
+        run: |
+          codesign --force --deep --sign - dist/macos/Anvil-MC.app
+
       - name: Zip .app to preserve bundle structure
         shell: bash
         run: |

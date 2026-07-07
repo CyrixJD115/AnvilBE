@@ -85,6 +85,7 @@ jobs:
             mv "dist/macos/main.app" "dist/macos/Anvil-MC.app"
             echo "Renamed main.app -> Anvil-MC.app"
           fi
+          codesign --force --deep --sign - dist/macos/Anvil-MC.app
           ditto -c -k --keepParent dist/macos/Anvil-MC.app dist/macos/Anvil-MC-macos.zip
           echo "=== final contents ==="
           ls -la dist/macos/ || true
