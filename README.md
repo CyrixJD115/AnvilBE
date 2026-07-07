@@ -47,14 +47,14 @@ python main.py
 
 ## macOS Build
 
-Pre-built `.app` bundles are available from GitHub Actions (see Releases or workflow artifacts).
+Pre-built `.app` bundles are available from GitHub Releases.
 
 ### First run — bypass Gatekeeper
 
 macOS may block the app because it isn't signed with an Apple Developer account. To fix:
 
 1. Extract the downloaded zip to get `Anvil-MC.app`
-2. Open Terminal in the folder containing `Anvil-MC.app` (in Finder: right-click the folder → **Services** → **New Terminal at Folder**)
+2. Open Terminal in the folder containing `Anvil-MC.app` (in Finder: right-click the folder → **New Terminal at Folder**)
 3. Run:
    ```bash
    xattr -dr com.apple.quarantine Anvil-MC.app
