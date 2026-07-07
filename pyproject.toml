@@ -1,6 +1,6 @@
 [project]
 name = "anvil-mc"
-version = "0.1.0 Beta"
+version = "0.1.0b0"
 description = "Minecraft Bedrock Edition Addon Merger — merge behavior & resource packs with intelligent conflict resolution"
 authors = [
     { name = "Anvil-MC Contributors" },
