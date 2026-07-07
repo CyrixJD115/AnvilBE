@@ -39,7 +39,7 @@ jobs:
           with open("version.yaml") as f:
               m = re.search(r'^version:\s*(.+)$', f.read(), re.MULTILINE)
               ver = m.group(1).strip().strip('"\'') if m else "0.0.0"
-              clean = re.sub(r'\s+[a-zA-Z].*', '', ver).strip() or ver
+              clean = re.sub(r'(\s+|-)[a-zA-Z].*', '', ver).strip() or ver
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"version={ver}\n")
               f.write(f"version_clean={clean}\n")

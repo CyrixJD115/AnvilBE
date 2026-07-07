@@ -34,7 +34,7 @@ _version_file = ROOT / "version.yaml"
 _match = re.search(r'^version:\s*(.+)$', _version_file.read_text("utf-8"), re.MULTILINE)
 VERSION = _match.group(1).strip().strip('"\'') if _match else "0.0.0"
 # Strip non-numeric suffix for Nuitka's --file-version (needs pure numeric)
-_VERSION_NUMERIC = re.sub(r'\s+[a-zA-Z].*', '', VERSION).strip() or VERSION
+_VERSION_NUMERIC = re.sub(r'(\s+|-)[a-zA-Z].*', '', VERSION).strip() or VERSION
 
 
 def clean():
