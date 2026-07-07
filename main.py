@@ -24,18 +24,12 @@ def main():
 
         app = QApplication(sys.argv)
 
-        # Application metadata — set BEFORE creating any windows
+        # Application metadata
         app.setApplicationName("Anvil-MC")
         app.setApplicationVersion("7.0.2")
         app.setOrganizationName("Anvil-MC")
-        # Helps Linux desktop environments (GNOME/KDE) match this app to a
-        # .desktop file so the icon appears in the taskbar/dock.
-        try:
-            app.setDesktopFileName("anvil-mc")
-        except AttributeError:
-            pass
 
-        # Set window icon — prefer PNG on Linux (.ico WM_ICON support is spotty)
+        # Set window icon — prefer PNG (.ico doesn't render in Linux taskbars)
         icon_png = _project_root / "src" / "theme" / "anvil.png"
         icon_ico = _project_root / "src" / "theme" / "anvil.ico"
         icon_path = icon_png if icon_png.exists() else icon_ico
