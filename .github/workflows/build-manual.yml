@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version number (e.g. 7.0.3)"
-        required: true
+        description: "Version number (leave blank to use pyproject.toml)"
+        required: false
         type: string
+        default: ""
       description:
         description: "Build description (e.g. Hotfix memory leak)"
         required: false
@@ -39,6 +40,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Read version
+        id: version
+        shell: python
+        run: |
+          import re, os
+          with open("pyproject.toml") as f:
+              m = re.search(r'^version\s*=\s*"([^"]+)"', f.read(), re.MULTILINE)
+              ver = m.group(1) if m else "0.0.0"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"version={ver}\n")
+
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
@@ -68,7 +80,7 @@ jobs:
           pip install -e .
 
       - name: Build with Nuitka
-        run: python build/build_nuitka.py ${{ matrix.build_flag }} --version ${{ inputs.version }}
+        run: python build/build_nuitka.py ${{ matrix.build_flag }} --version ${{ inputs.version || steps.version.outputs.version }}
 
       - name: Prepare macOS artifact
         if: runner.os == 'macOS'
@@ -100,5 +112,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.artifact_name }}-${{ inputs.version }}${{ steps.label.outputs.suffix }}
+          name: ${{ matrix.artifact_name }}-${{ inputs.version || steps.version.outputs.version }}${{ steps.label.outputs.suffix }}
           path: ${{ matrix.artifact_path }}

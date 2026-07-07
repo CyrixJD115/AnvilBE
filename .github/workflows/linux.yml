@@ -21,6 +21,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Read version
+        id: version
+        shell: python
+        run: |
+          import re, os
+          with open("pyproject.toml") as f:
+              m = re.search(r'^version\s*=\s*"([^"]+)"', f.read(), re.MULTILINE)
+              ver = m.group(1) if m else "0.0.0"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"version={ver}\n")
+
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
@@ -43,7 +54,7 @@ jobs:
           pip install -e .
 
       - name: Build with Nuitka
-        run: python build/build_nuitka.py --linux --version ${{ inputs.version || '7.0.2' }}
+        run: python build/build_nuitka.py --linux --version ${{ inputs.version || steps.version.outputs.version }}
 
       - name: Sanitize description for artifact name
         id: label
@@ -57,5 +68,5 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: Anvil-MC-linux-${{ inputs.version || '7.0.2' }}${{ steps.label.outputs.suffix }}
+          name: Anvil-MC-linux-${{ inputs.version || steps.version.outputs.version }}${{ steps.label.outputs.suffix }}
           path: dist/linux/Anvil-MC
