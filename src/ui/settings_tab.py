@@ -183,6 +183,6 @@ class SettingsTab(QWidget):
             self._chk_merge_version.setChecked(settings.get("merge_by_version", False))
             self._chk_customize.setChecked(settings.get("customize_pack_after_merge", True))
             self._chk_show_linked.setChecked(settings.get("show_linked_packs_after_merge", False))
-            self._chk_script_entry.setChecked(settings.get("allow_script_entry_edit", False))
+            self._chk_script_entry.setChecked(settings.get("allow_script_entry_edit", True))
         finally:
             self._loading = False
