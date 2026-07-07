@@ -11,6 +11,7 @@ import traceback
 import zipfile as _zipfile
 from PySide6.QtCore import QThread, Signal
 from src.core.i18n import _tr
+from src.core.pack_utils import safe_extractall, zip_pack_folder
 
 
 class MergeWorkerThread(QThread):
@@ -312,7 +313,7 @@ class MergeWorkerThread(QThread):
             return
         self.progress_update.emit(50)
         self.status_update.emit(_tr("progress.creating_manifests", "Creating manifests..."))
-        self.app._create_manifest()
+        self.app._create_manifest(files)
 
         # Step 7: Move tick and delete functions
         if self._cancel_requested:

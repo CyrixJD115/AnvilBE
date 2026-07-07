@@ -47,35 +47,36 @@ class IdentifierManager:
 
         try:
             for item_name in pack_zip.namelist():
-                if item_name.startswith('subpacks/'):
+                nr = item_name.replace('\\', '/')
+                if nr.startswith('subpacks/'):
                     continue
 
-                if item_name.startswith('entities/') and item_name.endswith('.json'):
+                if nr.startswith('entities/') and nr.endswith('.json'):
                     identifiers['entities'].update(
                         self._extract_entity_identifiers(pack_zip, item_name))
 
-                if item_name.startswith('items/') and item_name.endswith('.json'):
+                if nr.startswith('items/') and nr.endswith('.json'):
                     identifiers['items'].update(
                         self._extract_item_identifiers(pack_zip, item_name))
 
-                if item_name.startswith('blocks/') and item_name.endswith('.json'):
+                if nr.startswith('blocks/') and nr.endswith('.json'):
                     identifiers['blocks'].update(
                         self._extract_block_identifiers(pack_zip, item_name))
 
-                if item_name.startswith('loot_tables/') and item_name.endswith('.json'):
-                    loot_id = self._extract_loot_table_id(item_name)
+                if nr.startswith('loot_tables/') and nr.endswith('.json'):
+                    loot_id = self._extract_loot_table_id(nr)
                     if loot_id:
                         identifiers['loot_tables'].add(loot_id)
 
-                if item_name.startswith('recipes/') and item_name.endswith('.json'):
+                if nr.startswith('recipes/') and nr.endswith('.json'):
                     identifiers['recipes'].update(
                         self._extract_recipe_identifiers(pack_zip, item_name))
 
-                if 'animation_controllers' in item_name and item_name.endswith('.json'):
+                if 'animation_controllers' in nr and nr.endswith('.json'):
                     identifiers['animation_controllers'].update(
                         self._extract_animation_controller_identifiers(pack_zip, item_name))
 
-                if 'render_controllers' in item_name and item_name.endswith('.json'):
+                if 'render_controllers' in nr and nr.endswith('.json'):
                     identifiers['render_controllers'].update(
                         self._extract_render_controller_identifiers(pack_zip, item_name))
 

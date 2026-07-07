@@ -803,6 +803,8 @@ class AutoBEWindow(QMainWindow):
 
         json_contents_rp = {}
         json_contents_bp = {}
+        mergeable_dirs_rp = {}
+        mergeable_dirs_bp = {}
         lang_contents_rp = {}
         lang_contents_bp = {}
         written_paths_rp = set()
@@ -964,9 +966,12 @@ class AutoBEWindow(QMainWindow):
                                 # Check if mergeable or entity/item/block
                                 if filename in _MERGEABLE_FILES:
                                     target = json_contents_rp if is_rp else json_contents_bp
+                                    dirs = mergeable_dirs_rp if is_rp else mergeable_dirs_bp
                                     if filename not in target:
                                         target[filename] = []
                                     target[filename].append(json_data)
+                                    if filename not in dirs:
+                                        dirs[filename] = _os.path.dirname(rel_path)
                                     continue
 
                                 if filename in _LIST_MERGEABLE_FILES:
@@ -1088,17 +1093,19 @@ class AutoBEWindow(QMainWindow):
                 with open(out_path, 'w', encoding='utf-8') as f:
                     _json.dump(merged, f, indent=2)
 
-        # Merge mergeable JSON files
+        # Merge mergeable JSON files (preserve directory context)
         for filename, json_list in json_contents_rp.items():
             merged = merger.merge_json_list(json_list, file_path=filename)
-            out_path = _os.path.join(rp_dir, filename)
+            subdir = mergeable_dirs_rp.get(filename, '')
+            out_path = _os.path.join(rp_dir, subdir, filename)
             _os.makedirs(_os.path.dirname(out_path), exist_ok=True)
             with open(out_path, 'w', encoding='utf-8') as f:
                 _json.dump(merged, f, indent=2)
 
         for filename, json_list in json_contents_bp.items():
             merged = merger.merge_json_list(json_list, file_path=filename)
-            out_path = _os.path.join(bp_dir, filename)
+            subdir = mergeable_dirs_bp.get(filename, '')
+            out_path = _os.path.join(bp_dir, subdir, filename)
             _os.makedirs(_os.path.dirname(out_path), exist_ok=True)
             with open(out_path, 'w', encoding='utf-8') as f:
                 _json.dump(merged, f, indent=2)
@@ -1338,7 +1345,7 @@ class AutoBEWindow(QMainWindow):
                     except Exception:
                         pass
 
-    def _create_manifest(self):
+    def _create_manifest(self, files=None):
         """Create unified manifest.json for output packs with cross-dependencies,
         script module, and fallback pack icon."""
         output_dir = self._out_dir
@@ -1349,11 +1356,6 @@ class AutoBEWindow(QMainWindow):
         bp_script_uuid = str(_uuid.uuid4())
         rp_header_uuid = getattr(self, '_pre_generated_rp_uuid', None) or str(_uuid.uuid4())
         rp_module_uuid = getattr(self, '_pre_generated_rp_module_uuid', None) or str(_uuid.uuid4())
-
-        # Track BP UUID for RP dependency (merge_by_version collects all)
-        if not hasattr(self, '_all_bp_uuids'):
-            self._all_bp_uuids = []
-        self._all_bp_uuids.append(bp_header_uuid)
 
         # --- Script API version ---
         script_api_ver = getattr(self, '_current_script_api_version', None) \
@@ -1395,6 +1397,12 @@ class AutoBEWindow(QMainWindow):
                 "version": [1, 0, 0],
             })
 
+        # Track BP UUID for RP dependency (only if BP zip exists)
+        if _os.path.exists(bp_zip_check):
+            if not hasattr(self, '_all_bp_uuids'):
+                self._all_bp_uuids = []
+            self._all_bp_uuids.append(bp_header_uuid)
+
         bp_dependencies = [{
             "uuid": rp_header_uuid,
             "version": [1, 0, 0],
@@ -1416,6 +1424,36 @@ class AutoBEWindow(QMainWindow):
                     "module_name": "@minecraft/server-gametest",
                     "version": script_gametest_ver,
                 })
+
+        # Preserve additional module_name dependencies from source packs
+        source_files = files if files is not None else getattr(self, '_files', [])
+        already_added = {'@minecraft/server', '@minecraft/server-ui',
+                         '@minecraft/server-gametest', '@minecraft/server-admin'}
+        extra_modules = {}
+        for src in source_files:
+            try:
+                manifest = get_pack_manifest_data(src)
+                if manifest:
+                    for dep in manifest.get('dependencies', []):
+                        mod_name = dep.get('module_name')
+                        if mod_name and mod_name not in already_added:
+                            ver = dep.get('version', '1.0.0')
+                            if mod_name not in extra_modules:
+                                extra_modules[mod_name] = ver
+                            else:
+                                def _ver_key(v):
+                                    if isinstance(v, list):
+                                        return tuple(int(x) for x in v)
+                                    return tuple(int(x) for x in str(v).split('.'))
+                                if _ver_key(ver) > _ver_key(extra_modules[mod_name]):
+                                    extra_modules[mod_name] = ver
+            except Exception:
+                pass
+        for mod_name, ver in extra_modules.items():
+            bp_dependencies.append({
+                "module_name": mod_name,
+                "version": ver,
+            })
 
         bp_manifest = {
             "format_version": 2,
@@ -1781,7 +1819,8 @@ class AutoBEWindow(QMainWindow):
                         names = z.namelist()
 
                 for name in names:
-                    if name.startswith('scripts/') and name.endswith('.js'):
+                    nr = name.replace('\\', '/')
+                    if nr.startswith('scripts/') and nr.endswith('.js'):
                         try:
                             if _os.path.isdir(f):
                                 with open(_os.path.join(f, name), 'r', encoding='utf-8', errors='ignore') as fh:
