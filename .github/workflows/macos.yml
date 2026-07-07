@@ -26,10 +26,10 @@ jobs:
         shell: python
         run: |
           import re, os
-          with open("pyproject.toml") as f:
-              m = re.search(r'^version\s*=\s*"([^"]+)"', f.read(), re.MULTILINE)
-              ver = m.group(1) if m else "0.0.0"
-              clean = re.sub(r'[a-zA-Z]+[0-9]*', '', ver).rstrip('.') or ver
+          with open("version.yaml") as f:
+              m = re.search(r'^version:\s*(.+)$', f.read(), re.MULTILINE)
+              ver = m.group(1).strip().strip('"\'') if m else "0.0.0"
+              clean = re.sub(r'\s+[a-zA-Z].*', '', ver).strip() or ver
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"version={ver}\n")
               f.write(f"version_clean={clean}\n")

@@ -89,6 +89,7 @@ src/
   workers/
     merge_worker.py       # Background merge pipeline thread
   theme/                  # QSS stylesheet, fonts, icons
+version.yaml              # Version number (what you see in the app)
 main.py                   # Entry point
 locales/                  # Translation JSON files
 resources/                # Help content HTML

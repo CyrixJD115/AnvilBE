@@ -29,12 +29,12 @@ MAIN_SCRIPT = ROOT / "main.py"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "nuitka-work"
 
-# Read version from pyproject.toml (single source of truth)
-_pyproject = ROOT / "pyproject.toml"
-_match = re.search(r'^version\s*=\s*"([^"]+)"', _pyproject.read_text("utf-8"), re.MULTILINE)
-VERSION = _match.group(1) if _match else "0.0.0"
-# Strip pre-release suffix for Nuitka's --file-version (needs pure numeric)
-_VERSION_NUMERIC = re.sub(r'[a-zA-Z]+[0-9]*', '', VERSION).rstrip('.') or VERSION
+# Read version from version.yaml
+_version_file = ROOT / "version.yaml"
+_match = re.search(r'^version:\s*(.+)$', _version_file.read_text("utf-8"), re.MULTILINE)
+VERSION = _match.group(1).strip().strip('"\'') if _match else "0.0.0"
+# Strip non-numeric suffix for Nuitka's --file-version (needs pure numeric)
+_VERSION_NUMERIC = re.sub(r'\s+[a-zA-Z].*', '', VERSION).strip() or VERSION
 
 
 def clean():
