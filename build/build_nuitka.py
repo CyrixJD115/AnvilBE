@@ -17,6 +17,7 @@ Requirements:
 """
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -28,7 +29,12 @@ MAIN_SCRIPT = ROOT / "main.py"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build" / "nuitka-work"
 
-VERSION = "7.0.2"
+# Read version from pyproject.toml (single source of truth)
+_pyproject = ROOT / "pyproject.toml"
+_match = re.search(r'^version\s*=\s*"([^"]+)"', _pyproject.read_text("utf-8"), re.MULTILINE)
+VERSION = _match.group(1) if _match else "0.0.0"
+# Strip pre-release suffix for Nuitka's --file-version (needs pure numeric)
+_VERSION_NUMERIC = re.sub(r'[a-zA-Z]+[0-9]*', '', VERSION).rstrip('.') or VERSION
 
 
 def clean():
@@ -46,7 +52,7 @@ def build_windows():
         f"--output-dir={out}",
         f"--output-filename={APP_NAME}.exe",
         f"--product-name={APP_NAME}",
-        f"--file-version={VERSION}",
+        f"--file-version={_VERSION_NUMERIC}",
         f"--file-description=Minecraft Bedrock Edition Addon Merger",
         "--enable-plugin=pyside6",
         f"--include-data-dir=resources=resources",
@@ -73,7 +79,7 @@ def build_linux():
         f"--output-dir={out}",
         f"--output-filename={APP_NAME}",
         f"--product-name={APP_NAME}",
-        f"--file-version={VERSION}",
+        f"--file-version={_VERSION_NUMERIC}",
         "--enable-plugin=pyside6",
         f"--include-data-dir=resources=resources",
         f"--include-data-dir=locales=locales",
@@ -115,7 +121,7 @@ def build_macos():
         f"--output-dir={out}",
         f"--output-filename={APP_NAME}",
         f"--product-name={APP_NAME}",
-        f"--file-version={VERSION}",
+        f"--file-version={_VERSION_NUMERIC}",
         "--enable-plugin=pyside6",
         f"--include-data-dir=resources=resources",
         f"--include-data-dir=locales=locales",
@@ -153,9 +159,10 @@ def parse_args():
 def main():
     args = parse_args()
 
-    global VERSION
+    global VERSION, _VERSION_NUMERIC
     if args.version:
         VERSION = args.version
+        _VERSION_NUMERIC = re.sub(r'[a-zA-Z]+[0-9]*', '', VERSION).rstrip('.') or VERSION
 
     if args.clean:
         clean()
