@@ -90,7 +90,6 @@ src/
     merge_worker.py       # Background merge pipeline thread
   theme/                  # QSS stylesheet, fonts, icons
 main.py                   # Entry point
-version.json              # Project version number
 locales/                  # Translation JSON files
 resources/                # Help content HTML
 ```

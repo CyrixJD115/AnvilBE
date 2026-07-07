@@ -73,8 +73,9 @@ except Exception:
     _UNIVERSAL_PATCHER = None
 
 # ── App version ──────────────────────────────────────────────────────
-_VERSION_FILE = Path(__file__).resolve().parent.parent / "version.json"
-APP_VERSION = json.loads(_VERSION_FILE.read_text(encoding="utf-8"))["version"]
+_VERSION_FILE = Path(__file__).resolve().parent.parent / "pyproject.toml"
+_match = re.search(r'^version\s*=\s*"([^"]+)"', _VERSION_FILE.read_text("utf-8"), re.MULTILINE)
+APP_VERSION = _match.group(1) if _match else "0.0.0"
 
 # Mergeable files — JSON files that can be merged from multiple packs
 _MERGEABLE_FILES = {
