@@ -59,6 +59,7 @@ def build_windows():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
+        "--include-data-files=version.yaml=version.yaml",
         f"--windows-icon-from-ico={ROOT / 'src' / 'theme' / 'anvil.ico'}",
         "--windows-console-mode=disable",
         "--assume-yes-for-downloads",
@@ -85,6 +86,7 @@ def build_linux():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
+        "--include-data-files=version.yaml=version.yaml",
         "--assume-yes-for-downloads",
         "--noinclude-pytest-mode=nofollow",
         "--noinclude-default-mode=error",
@@ -127,6 +129,7 @@ def build_macos():
         f"--include-data-dir=locales=locales",
         f"--include-data-dir=src/theme=src/theme",
         "--include-package=src",
+        "--include-data-files=version.yaml=version.yaml",
         "--macos-target-arch=arm64",
         "--assume-yes-for-downloads",
         "--noinclude-pytest-mode=nofollow",
@@ -166,7 +169,7 @@ def main():
 
     if args.clean:
         clean()
-        if not (args.windows or args.linux):
+        if not (args.windows or args.linux or args.macos):
             return
 
     if args.windows:

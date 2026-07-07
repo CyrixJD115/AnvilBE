@@ -50,6 +50,11 @@ from src.ui.help_tab import HelpTab
 from src.ui.settings_tab import SettingsTab
 from src.ui.console_tab import ConsoleTab
 
+# ── App version ──────────────────────────────────────────────────────
+_VERSION_FILE = Path(__file__).resolve().parent.parent / "version.yaml"
+_match = re.search(r'^version:\s*(.+)$', _VERSION_FILE.read_text("utf-8"), re.MULTILINE)
+APP_VERSION = _match.group(1).strip().strip('"\'') if _match else "0.0.0"
+
 # ── Dialogs ──────────────────────────────────────────────────────────
 from src.ui.dialogs import (
     ConflictResolutionDialog,
@@ -71,11 +76,6 @@ except Exception:
     fixers = None
     _FIXERS = []
     _UNIVERSAL_PATCHER = None
-
-# ── App version ──────────────────────────────────────────────────────
-_VERSION_FILE = Path(__file__).resolve().parent.parent / "version.yaml"
-_match = re.search(r'^version:\s*(.+)$', _VERSION_FILE.read_text("utf-8"), re.MULTILINE)
-APP_VERSION = _match.group(1).strip().strip('"\'') if _match else "0.0.0"
 
 # Mergeable files — JSON files that can be merged from multiple packs
 _MERGEABLE_FILES = {
