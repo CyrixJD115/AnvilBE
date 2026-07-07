@@ -1447,7 +1447,7 @@ class AutoBEWindow(QMainWindow):
             }],
         }
         # Only add BP dependency to RP if BP actually exists in this group
-        if _os.path.exists(bp_zip):
+        if _os.path.exists(bp_zip_check):
             rp_manifest["dependencies"] = [{
                 "uuid": bp_header_uuid,
                 "version": [1, 0, 0],
