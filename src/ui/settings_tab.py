@@ -62,6 +62,10 @@ class SettingsTab(QWidget):
         self._chk_show_linked.setStyleSheet("color: #C6C6C6;")
         merge_layout.addWidget(self._chk_show_linked)
 
+        self._chk_script_entry = QCheckBox()
+        self._chk_script_entry.setStyleSheet("color: #C6C6C6;")
+        merge_layout.addWidget(self._chk_script_entry)
+
         layout.addWidget(self._merge_group)
 
         # ── Default output directory ──────────────────────────────────
@@ -96,6 +100,7 @@ class SettingsTab(QWidget):
         self._chk_merge_version.setText(_tr("settings.merge_by_version", "Merge by @minecraft/server version"))
         self._chk_customize.setText(_tr("settings.customize_before_merge", "Show pack customization dialog before merge"))
         self._chk_show_linked.setText(_tr("settings.show_linked", "Show linked packs after merge"))
+        self._chk_script_entry.setText(_tr("settings.script_entry_edit", "Allow editing script entry name in customize dialog"))
         self._output_group.setTitle(_tr("settings.group.default_output", "Default Output Directory"))
         self._entry_output_dir.setPlaceholderText(_tr("settings.default_output_ph", "Select default output directory..."))
         self._btn_browse.setText(_tr("common.browse", "Browse..."))
@@ -122,6 +127,10 @@ class SettingsTab(QWidget):
     @property
     def chk_show_linked(self):
         return self._chk_show_linked
+
+    @property
+    def chk_script_entry(self):
+        return self._chk_script_entry
 
     @property
     def entry_output_dir(self):
@@ -157,6 +166,7 @@ class SettingsTab(QWidget):
             "merge_by_version": self._chk_merge_version.isChecked(),
             "customize_pack_after_merge": self._chk_customize.isChecked(),
             "show_linked_packs_after_merge": self._chk_show_linked.isChecked(),
+            "allow_script_entry_edit": self._chk_script_entry.isChecked(),
         }
 
     def set_settings(self, settings):
@@ -166,3 +176,4 @@ class SettingsTab(QWidget):
         self._chk_merge_version.setChecked(settings.get("merge_by_version", False))
         self._chk_customize.setChecked(settings.get("customize_pack_after_merge", True))
         self._chk_show_linked.setChecked(settings.get("show_linked_packs_after_merge", False))
+        self._chk_script_entry.setChecked(settings.get("allow_script_entry_edit", False))

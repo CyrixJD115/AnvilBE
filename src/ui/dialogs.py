@@ -335,22 +335,23 @@ class PackCustomizationDialog(QDialog):
     from the first selected pack's manifest.
     """
 
-    def __init__(self, prefill=None, parent=None):
+    def __init__(self, prefill=None, parent=None, show_script_entry=False):
         super().__init__(parent)
         self._prefill = prefill or {}
         self._custom_icon_path = None
+        self._show_script_entry = show_script_entry
         self.setWindowTitle(_tr("customize.window_title", "Customize Merged Pack"))
-        self.setMinimumSize(560, 380)
+        self.setMinimumSize(560, 400)
         self.setModal(True)
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
         form = QFormLayout()
-        form.setSpacing(10)
+        form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         # Pack name
@@ -368,11 +369,12 @@ class PackCustomizationDialog(QDialog):
         self._author_edit = QLineEdit(self._prefill.get('author', "Anvil-MC"))
         form.addRow(_tr("customize.author", "Author:"), self._author_edit)
 
-        # Script entry name
-        self._script_entry_edit = QLineEdit(
-            self._prefill.get('script_entry_name', 'main.js'))
-        self._script_entry_edit.setPlaceholderText("main.js")
-        form.addRow(_tr("customize.script_entry", "Script Entry:"), self._script_entry_edit)
+        # Script entry name — only shown when enabled in settings
+        if self._show_script_entry:
+            self._script_entry_edit = QLineEdit(
+                self._prefill.get('script_entry_name', 'main.js'))
+            self._script_entry_edit.setPlaceholderText("main.js")
+            form.addRow(_tr("customize.script_entry", "Script Entry:"), self._script_entry_edit)
 
         layout.addLayout(form)
 
@@ -445,9 +447,11 @@ class PackCustomizationDialog(QDialog):
 
     def get_customization(self):
         """Return dict with name, description, author, script entry, and optional icon path."""
-        script_name = self._script_entry_edit.text().strip() or 'main.js'
-        if not script_name.endswith('.js'):
-            script_name += '.js'
+        script_name = 'main.js'
+        if self._show_script_entry:
+            script_name = self._script_entry_edit.text().strip() or 'main.js'
+            if not script_name.endswith('.js'):
+                script_name += '.js'
         return {
             'name': self._name_edit.text().strip() or "Merged Pack",
             'description': self._desc_edit.toPlainText().strip(),

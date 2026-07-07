@@ -127,6 +127,7 @@ class AutoBEWindow(QMainWindow):
         self.merge_by_version = self._settings.get("merge_by_version", False)
         self.customize_pack_after_merge = self._settings.get("customize_pack_after_merge", True)
         self.show_linked_packs_after_merge = self._settings.get("show_linked_packs_after_merge", False)
+        self.allow_script_entry_edit = self._settings.get("allow_script_entry_edit", False)
         self._output_format = self._settings.get("output_format", "mcaddon")
 
         # Merge progress
@@ -316,6 +317,7 @@ class AutoBEWindow(QMainWindow):
             "merge_by_version": self.merge_by_version,
             "customize_pack_after_merge": self.customize_pack_after_merge,
             "show_linked_packs_after_merge": self.show_linked_packs_after_merge,
+            "allow_script_entry_edit": self.allow_script_entry_edit,
             "output_format": getattr(self, '_output_format', 'mcaddon'),
         }
         try:
@@ -537,7 +539,8 @@ class AutoBEWindow(QMainWindow):
         # Show pack customization dialog if enabled
         if self.customize_pack_after_merge:
             prefill = self._build_customization_prefill(files)
-            dlg = PackCustomizationDialog(prefill, self)
+            dlg = PackCustomizationDialog(prefill, self,
+                                          show_script_entry=self.allow_script_entry_edit)
             if dlg.exec() == QDialog.Accepted:
                 self._pack_customization = dlg.get_customization()
             else:
