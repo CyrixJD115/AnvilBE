@@ -25,13 +25,17 @@ Minecraft Bedrock Edition addon merger — merge multiple `.mcpack` / `.mcaddon`
 
 ## Installation
 
+### With uv (recommended)
+
 ```bash
-pip install -e .
+uv sync
+uv run python main.py
 ```
 
-Then run with:
+### With pip
 
 ```bash
+pip install -e .
 anvil-mc
 ```
 
@@ -86,6 +90,7 @@ src/
     merge_worker.py       # Background merge pipeline thread
   theme/                  # QSS stylesheet, fonts, icons
 main.py                   # Entry point
+version.json              # Project version number
 locales/                  # Translation JSON files
 resources/                # Help content HTML
 ```

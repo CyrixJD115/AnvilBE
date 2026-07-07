@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPixmap
+from src.app import APP_VERSION
 from src.core.i18n import _tr
 
 
@@ -487,7 +488,7 @@ class AboutDialog(QDialog):
         subtitle.setAlignment(Qt.AlignCenter)
         layout.addWidget(subtitle)
 
-        version = QLabel(_tr("about.version", "Version {ver}").format(ver="7.0.2"))
+        version = QLabel(_tr("about.version", "Version {ver}").format(ver=APP_VERSION))
         version.setStyleSheet("color: #888888; font-size: 10pt;")
         version.setAlignment(Qt.AlignCenter)
         layout.addWidget(version)
