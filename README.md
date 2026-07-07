@@ -45,6 +45,24 @@ Or directly:
 python main.py
 ```
 
+## macOS Build
+
+Pre-built `.app` bundles are available from GitHub Actions (see Releases or workflow artifacts).
+
+### First run — bypass Gatekeeper
+
+macOS may block the app because it isn't signed with an Apple Developer account. To fix:
+
+1. Extract the downloaded zip to get `Anvil-MC.app`
+2. Open Terminal in the folder containing `Anvil-MC.app` (in Finder: right-click the folder → **Services** → **New Terminal at Folder**)
+3. Run:
+   ```bash
+   xattr -dr com.apple.quarantine Anvil-MC.app
+   ```
+4. Now double-click `Anvil-MC.app` to launch normally
+
+> **Alternative** (no terminal): right-click `Anvil-MC.app` → **Open**, then click **Open** in the dialog. This only needs to be done once.
+
 ## Usage
 
 1. **Merger tab** — add `.mcpack` / `.mcaddon` files (drag-drop or via buttons)
