@@ -75,8 +75,20 @@ except Exception:
 # ── App version ──────────────────────────────────────────────────────
 _VERSION_FILE = Path(__file__).resolve().parent.parent / "pyproject.toml"
 _match = re.search(r'^version\s*=\s*"([^"]+)"', _VERSION_FILE.read_text("utf-8"), re.MULTILINE)
+def _format_version(ver: str) -> str:
+    """Format a PEP 440 version string for display.
+    0.1.0b0 → 0.1.0 Beta    0.1.0a1 → 0.1.0 Alpha
+    0.1.0rc1 → 0.1.0 RC      1.0.0.dev1 → 1.0.0 Dev
+    0.1.0 → 0.1.0 (unchanged)
+    """
+    ver = re.sub(r'([0-9])a([0-9]+)', r'\1 Alpha', ver)
+    ver = re.sub(r'([0-9])b([0-9]+)', r'\1 Beta', ver)
+    ver = re.sub(r'([0-9])rc([0-9]+)', r'\1 RC', ver)
+    ver = re.sub(r'\.dev([0-9]+)', r' Dev', ver)
+    return ver.strip()
+
 _ver = _match.group(1) if _match else "0.0.0"
-APP_VERSION = re.sub(r'([0-9])b[0-9]+', r'\1 Beta', _ver)
+APP_VERSION = _format_version(_ver)
 
 # Mergeable files — JSON files that can be merged from multiple packs
 _MERGEABLE_FILES = {
