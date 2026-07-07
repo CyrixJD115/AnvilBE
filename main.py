@@ -10,11 +10,6 @@ import sys
 import os
 from pathlib import Path
 
-# Fix Qt freezing on WSLg — force XCB platform plugin and software rendering.
-# These must be set BEFORE any PySide6/Qt imports.
-os.environ.setdefault('QT_QPA_PLATFORM', 'xcb')
-os.environ.setdefault('QT_OPENGL', 'software')
-
 # Add the project root to sys.path so 'src' is importable
 _project_root = Path(__file__).parent
 sys.path.insert(0, str(_project_root))
