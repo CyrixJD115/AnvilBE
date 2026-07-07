@@ -368,6 +368,12 @@ class PackCustomizationDialog(QDialog):
         self._author_edit = QLineEdit(self._prefill.get('author', "Anvil-MC"))
         form.addRow(_tr("customize.author", "Author:"), self._author_edit)
 
+        # Script entry name
+        self._script_entry_edit = QLineEdit(
+            self._prefill.get('script_entry_name', 'main.js'))
+        self._script_entry_edit.setPlaceholderText("main.js")
+        form.addRow(_tr("customize.script_entry", "Script Entry:"), self._script_entry_edit)
+
         layout.addLayout(form)
 
         # Pack icon row with preview
@@ -438,11 +444,15 @@ class PackCustomizationDialog(QDialog):
         self._icon_preview.setText(_tr("customize.no_icon_short", "none"))
 
     def get_customization(self):
-        """Return dict with name, description, author, and optional icon path."""
+        """Return dict with name, description, author, script entry, and optional icon path."""
+        script_name = self._script_entry_edit.text().strip() or 'main.js'
+        if not script_name.endswith('.js'):
+            script_name += '.js'
         return {
             'name': self._name_edit.text().strip() or "Merged Pack",
             'description': self._desc_edit.toPlainText().strip(),
             'author': self._author_edit.text().strip() or "Anvil-MC",
+            'script_entry_name': script_name,
             'icon_path': self._custom_icon_path,
         }
 

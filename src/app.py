@@ -1335,62 +1335,171 @@ class AutoBEWindow(QMainWindow):
                         pass
 
     def _create_manifest(self):
-        """Create unified manifest.json for output packs."""
+        """Create unified manifest.json for output packs with cross-dependencies,
+        script module, and fallback pack icon."""
         output_dir = self._out_dir
 
-        # Behavior pack manifest
+        # --- Generate stable UUIDs ---
+        bp_header_uuid = str(_uuid.uuid4())
+        bp_module_uuid = str(_uuid.uuid4())
+        bp_script_uuid = str(_uuid.uuid4())
+        rp_header_uuid = getattr(self, '_pre_generated_rp_uuid', None) or str(_uuid.uuid4())
+        rp_module_uuid = getattr(self, '_pre_generated_rp_module_uuid', None) or str(_uuid.uuid4())
+
+        # Track BP UUID for RP dependency (merge_by_version collects all)
+        if not hasattr(self, '_all_bp_uuids'):
+            self._all_bp_uuids = []
+        self._all_bp_uuids.append(bp_header_uuid)
+
+        # --- Script API version ---
+        script_api_ver = getattr(self, '_current_script_api_version', None) \
+            or self.highest_server_version_full
+        script_ui_ver = self.highest_server_ui_version_full
+        script_gametest_ver = self.highest_gametest_version_full
+
+        # --- Script entry name ---
+        script_entry = 'main.js'
+        if hasattr(self, '_pack_customization') and self._pack_customization:
+            script_entry = self._pack_customization.get('script_entry_name', 'main.js')
+
+        # --- Behavior pack manifest ---
+        bp_modules = [{
+            "type": "data",
+            "uuid": bp_module_uuid,
+            "version": [1, 0, 0],
+        }]
+
+        # Check if scripts exist in the BP output
+        bp_zip_check = _os.path.join(output_dir, "behavior_pack.zip")
+        has_scripts = False
+        if _os.path.exists(bp_zip_check):
+            try:
+                with _zipfile.ZipFile(bp_zip_check, 'r') as z:
+                    has_scripts = any(
+                        n.replace('\\', '/').startswith('scripts/') and n.endswith('.js')
+                        for n in z.namelist()
+                    )
+            except Exception:
+                pass
+
+        if has_scripts:
+            bp_modules.append({
+                "type": "script",
+                "language": "javascript",
+                "entry": f"scripts/{script_entry}",
+                "uuid": bp_script_uuid,
+                "version": [1, 0, 0],
+            })
+
+        bp_dependencies = [{
+            "uuid": rp_header_uuid,
+            "version": [1, 0, 0],
+        }]
+
+        # Add script API dependencies if scripts exist
+        if has_scripts:
+            bp_dependencies.append({
+                "module_name": "@minecraft/server",
+                "version": script_api_ver,
+            })
+            if script_ui_ver and script_ui_ver != '1.2.0':
+                bp_dependencies.append({
+                    "module_name": "@minecraft/server-ui",
+                    "version": script_ui_ver,
+                })
+            if script_gametest_ver:
+                bp_dependencies.append({
+                    "module_name": "@minecraft/server-gametest",
+                    "version": script_gametest_ver,
+                })
+
         bp_manifest = {
             "format_version": 2,
             "header": {
                 "name": "Merged Behavior Pack",
                 "description": "Merged by Anvil-MC",
-                "uuid": str(_uuid.uuid4()),
+                "uuid": bp_header_uuid,
                 "version": self.highest_bp_version,
                 "min_engine_version": [1, 20, 0],
             },
-            "modules": [{
-                "type": "data",
-                "uuid": str(_uuid.uuid4()),
-                "version": [1, 0, 0],
-            }],
+            "modules": bp_modules,
+            "dependencies": bp_dependencies,
         }
 
-        # Resource pack manifest
+        # --- Resource pack manifest ---
         rp_manifest = {
             "format_version": 2,
             "header": {
                 "name": "Merged Resource Pack",
                 "description": "Merged by Anvil-MC",
-                "uuid": str(_uuid.uuid4()),
+                "uuid": rp_header_uuid,
                 "version": self.highest_rp_version,
                 "min_engine_version": [1, 20, 0],
             },
             "modules": [{
                 "type": "resources",
-                "uuid": str(_uuid.uuid4()),
+                "uuid": rp_module_uuid,
                 "version": [1, 0, 0],
             }],
         }
+        # Only add BP dependency to RP if BP actually exists in this group
+        if _os.path.exists(bp_zip):
+            rp_manifest["dependencies"] = [{
+                "uuid": bp_header_uuid,
+                "version": [1, 0, 0],
+            }]
+        else:
+            rp_manifest["dependencies"] = []
 
         # Apply customization if available
         if hasattr(self, '_pack_customization') and self._pack_customization:
             cust = self._pack_customization
-            bp_manifest['header']['name'] = cust.get('name', 'Merged Behavior Pack')
-            bp_manifest['header']['description'] = cust.get('description', '')
-            rp_manifest['header']['name'] = cust.get('name', 'Merged Resource Pack')
-            rp_manifest['header']['description'] = cust.get('description', '')
+            pack_name = cust.get('name', 'Merged Pack')
+            pack_desc = cust.get('description', '')
+            bp_manifest['header']['name'] = pack_name
+            bp_manifest['header']['description'] = pack_desc
+            rp_manifest['header']['name'] = pack_name
+            rp_manifest['header']['description'] = pack_desc
             if cust.get('author'):
                 author = cust['author'].strip()
                 bp_manifest['header']['authors'] = [author]
                 rp_manifest['header']['authors'] = [author]
 
-        custom_icon = None
+        # --- Resolve pack icon ---
+        icon_bytes = None
+        # 1) Custom icon from user
         if hasattr(self, '_pack_customization') and self._pack_customization:
             icon_path = self._pack_customization.get('icon_path')
             if icon_path and _os.path.isfile(icon_path):
-                custom_icon = icon_path
+                try:
+                    with open(icon_path, 'rb') as f:
+                        icon_bytes = f.read()
+                except Exception:
+                    pass
+        # 2) Fallback: search source packs for first pack_icon
+        if not icon_bytes:
+            for src in getattr(self, '_files', []):
+                if icon_bytes:
+                    break
+                try:
+                    if _os.path.isdir(src):
+                        for ext in ('.png', '.jpg', '.jpeg'):
+                            p = _os.path.join(src, f'pack_icon{ext}')
+                            if _os.path.isfile(p):
+                                with open(p, 'rb') as f:
+                                    icon_bytes = f.read()
+                                break
+                    else:
+                        with _zipfile.ZipFile(src, 'r') as sz:
+                            for n in sz.namelist():
+                                nb = n.replace('\\', '/').lower().split('/')[-1]
+                                if nb in ('pack_icon.png', 'pack_icon.jpg', 'pack_icon.jpeg'):
+                                    icon_bytes = sz.read(n)
+                                    break
+                except Exception:
+                    pass
 
-        # Write manifests
+        # --- Write manifests ---
         bp_zip = _os.path.join(output_dir, "behavior_pack.zip")
         rp_zip = _os.path.join(output_dir, "resource_pack.zip")
 
@@ -1403,8 +1512,8 @@ class AutoBEWindow(QMainWindow):
                     m_path = _os.path.join(temp_dir, 'manifest.json')
                     with open(m_path, 'w', encoding='utf-8') as f:
                         _json.dump(manifest, f, indent=2)
-                    # Inject custom pack icon if provided
-                    if custom_icon:
+                    # Inject pack icon
+                    if icon_bytes:
                         for ext in ('.png', '.jpg', '.jpeg'):
                             old = _os.path.join(temp_dir, f'pack_icon{ext}')
                             if _os.path.isfile(old):
@@ -1412,9 +1521,8 @@ class AutoBEWindow(QMainWindow):
                                     _os.remove(old)
                                 except Exception:
                                     pass
-                        with open(custom_icon, 'rb') as src, \
-                                open(_os.path.join(temp_dir, 'pack_icon.png'), 'wb') as dst:
-                            dst.write(src.read())
+                        with open(_os.path.join(temp_dir, 'pack_icon.png'), 'wb') as f:
+                            f.write(icon_bytes)
                     # Re-zip
                     zip_pack_folder(temp_dir, zip_path)
                 finally:
@@ -1542,11 +1650,14 @@ class AutoBEWindow(QMainWindow):
             if _os.path.isdir(scripts_dir):
                 _shutil.copytree(scripts_dir, _os.path.join(tmp, 'scripts'), dirs_exist_ok=True)
 
-            # Check if scripts/CodeNex.js has real imports
-            codenex = _os.path.join(tmp, 'scripts', 'CodeNex.js')
+            # Check if merged script has real imports
+            script_entry = 'main.js'
+            if hasattr(self, '_pack_customization') and self._pack_customization:
+                script_entry = self._pack_customization.get('script_entry_name', 'main.js')
+            merged_script = _os.path.join(tmp, 'scripts', script_entry)
             has_real_imports = False
-            if _os.path.isfile(codenex):
-                with open(codenex, 'r', encoding='utf-8', errors='ignore') as f:
+            if _os.path.isfile(merged_script):
+                with open(merged_script, 'r', encoding='utf-8', errors='ignore') as f:
                     has_real_imports = any(
                         line.strip().startswith('import ') for line in f
                     )
@@ -1640,10 +1751,14 @@ class AutoBEWindow(QMainWindow):
                 _logging.warning(f"tick.json merge error: {e}")
 
     def _process_script_files(self, files):
-        """Process and concatenate script files from all packs into scripts/CodeNex.js."""
+        """Process and concatenate script files from all packs into scripts/main.js."""
         out_dir = self._out_dir
         scripts_dir = _os.path.join(out_dir, 'scripts')
         _os.makedirs(scripts_dir, exist_ok=True)
+
+        script_entry = 'main.js'
+        if hasattr(self, '_pack_customization') and self._pack_customization:
+            script_entry = self._pack_customization.get('script_entry_name', 'main.js')
 
         all_scripts = []
         seen_imports = set()
@@ -1691,10 +1806,10 @@ class AutoBEWindow(QMainWindow):
                 pass
 
         if all_scripts:
-            codenex_path = _os.path.join(scripts_dir, 'CodeNex.js')
-            with open(codenex_path, 'w', encoding='utf-8') as f:
+            script_path = _os.path.join(scripts_dir, script_entry)
+            with open(script_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(all_scripts))
-            _logging.info(f"Created CodeNex.js with {len(all_scripts)} lines from {len(files)} pack(s)")
+            _logging.info(f"Created {script_entry} with {len(all_scripts)} lines from {len(files)} pack(s)")
 
     def _move_and_cleanup(self):
         """Move files between output zips and clean up intermediate state."""

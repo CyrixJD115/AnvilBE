@@ -108,9 +108,17 @@ class MergeWorkerThread(QThread):
 
     def _run_merge_by_version(self):
         """Group files by version and run the full pipeline per group."""
+        import uuid as _uuid
+
         groups = self.app._group_files_by_version(self.files)
         original_out_dir = self.app._out_dir
         total = len(groups)
+
+        # Pre-generate a single RP UUID so all BP groups can depend on it
+        self.app._pre_generated_rp_uuid = str(_uuid.uuid4())
+        self.app._pre_generated_rp_module_uuid = str(_uuid.uuid4())
+        # Collect BP UUIDs as they're created
+        self.app._all_bp_uuids = []
 
         for idx, (version, version_files) in enumerate(groups.items()):
             if self._cancel_requested:
@@ -121,6 +129,12 @@ class MergeWorkerThread(QThread):
             _os.makedirs(ver_out, exist_ok=True)
             self.app._out_dir = ver_out
 
+            # Store this group's script API version for manifest dependencies
+            if version.lower() not in ('unknown', 'none', ''):
+                self.app._current_script_api_version = version
+            else:
+                self.app._current_script_api_version = None
+
             label = f"v{safe_ver}"
             self.status_update.emit(
                 f"[{label}] Processing version group {idx + 1}/{total}..."
@@ -130,10 +144,67 @@ class MergeWorkerThread(QThread):
 
             self._run_merge_pipeline(version_files, ver_out)
 
+        # Update the RP manifest to depend on ALL BP UUIDs
+        self._link_rp_to_all_bps()
+
         # Restructure output into flat behavior_packs/ and resource_packs/
         self._restructure_version_output()
 
+        # Clean up temporary UUID state
+        for attr in ('_pre_generated_rp_uuid', '_pre_generated_rp_module_uuid',
+                     '_all_bp_uuids', '_current_script_api_version'):
+            if hasattr(self.app, attr):
+                delattr(self.app, attr)
+
         self.app._out_dir = original_out_dir
+
+    def _link_rp_to_all_bps(self):
+        """After all groups are processed, update the RP manifest to include
+        dependencies on every BP UUID so activating the RP auto-loads all BPs."""
+        import zipfile as _zipfile2
+        import json as _json2
+        import tempfile as _tempfile2
+
+        bp_uuids = getattr(self.app, '_all_bp_uuids', [])
+        if not bp_uuids:
+            return
+
+        # Find the RP file across all version subdirectories
+        for entry in sorted(_os.listdir(self.output_dir)):
+            ver_path = _os.path.join(self.output_dir, entry)
+            if not _os.path.isdir(ver_path) or not entry.startswith('v'):
+                continue
+
+            fmt = getattr(self.app, '_output_format', 'mcpack')
+            ext = '.zip' if fmt == 'zip' else '.mcpack'
+            rp_file = _os.path.join(ver_path, f'resource_pack{ext}')
+            if not _os.path.isfile(rp_file):
+                continue
+
+            tmp = _tempfile2.mkdtemp(prefix='rplink_')
+            try:
+                with _zipfile2.ZipFile(rp_file, 'r') as z:
+                    safe_extractall(z, tmp)
+                mpath = _os.path.join(tmp, 'manifest.json')
+                if _os.path.isfile(mpath):
+                    with open(mpath, 'r', encoding='utf-8') as f:
+                        mdata = _json2.load(f)
+                    deps = mdata.get('dependencies', [])
+                    for bp_uuid in bp_uuids:
+                        if not any(d.get('uuid') == bp_uuid for d in deps):
+                            deps.append({"uuid": bp_uuid, "version": [1, 0, 0]})
+                    mdata['dependencies'] = deps
+                    with open(mpath, 'w', encoding='utf-8') as f:
+                        _json2.dump(mdata, f, indent=2)
+                    zip_pack_folder(tmp, rp_file)
+                    _logging.info(f"Updated RP manifest with {len(bp_uuids)} BP dependencies")
+            except Exception as e:
+                _logging.warning(f"Failed to link RP to BPs: {e}")
+            finally:
+                try:
+                    _shutil.rmtree(tmp)
+                except Exception:
+                    pass
 
     def _restructure_version_output(self):
         """After merge-by-version, reorganize per-version subdirectories into
