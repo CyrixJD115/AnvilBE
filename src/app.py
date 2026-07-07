@@ -127,7 +127,7 @@ class AutoBEWindow(QMainWindow):
         self.merge_by_version = self._settings.get("merge_by_version", False)
         self.customize_pack_after_merge = self._settings.get("customize_pack_after_merge", True)
         self.show_linked_packs_after_merge = self._settings.get("show_linked_packs_after_merge", False)
-        self.allow_script_entry_edit = self._settings.get("allow_script_entry_edit", True)
+        self.allow_script_entry_edit = self._settings.get("allow_script_entry_edit", False)
         self._output_format = self._settings.get("output_format", "mcaddon")
 
         # Merge progress
