@@ -28,7 +28,7 @@ jobs:
           - os: macos-latest
             build_flag: --macos
             artifact_name: Anvil-MC-macos
-            artifact_path: dist/macos/Anvil-MC.app
+            artifact_path: dist/macos/Anvil-MC-macos.zip
             nuitka_cache: ~/Library/Caches/Nuitka
           - os: windows-latest
             build_flag: --windows
@@ -94,6 +94,8 @@ jobs:
             mv "dist/macos/main.app" "dist/macos/Anvil-MC.app"
             echo "Renamed main.app -> Anvil-MC.app"
           fi
+          codesign --force --deep --sign - dist/macos/Anvil-MC.app
+          ditto -c -k --keepParent dist/macos/Anvil-MC.app dist/macos/Anvil-MC-macos.zip
           echo "=== final contents ==="
           ls -la dist/macos/ || true
 
