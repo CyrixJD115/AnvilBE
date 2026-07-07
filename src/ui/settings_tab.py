@@ -6,18 +6,23 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QCheckBox,
     QLabel, QComboBox, QPushButton, QLineEdit, QFileDialog
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from src.core.i18n import available_languages, _tr
 
 
 class SettingsTab(QWidget):
     """
     Tab for configuring application settings.
+    Emits settings_changed whenever any control is modified by the user.
     """
+
+    settings_changed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._loading = False
         self._setup_ui()
+        self._connect_auto_save()
         self.retranslate_ui()
 
     def _setup_ui(self):
@@ -81,16 +86,21 @@ class SettingsTab(QWidget):
 
         layout.addWidget(self._output_group)
 
-        # ── Save button ───────────────────────────────────────────────
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        self._btn_save = QPushButton()
-        self._btn_save.setProperty("class", "primary")
-        self._btn_save.setMinimumHeight(40)
-        btn_layout.addWidget(self._btn_save)
-        layout.addLayout(btn_layout)
-
         layout.addStretch()
+
+    def _connect_auto_save(self):
+        """Connect all controls to emit settings_changed on user interaction."""
+        self._lang_combo.currentIndexChanged.connect(self._on_changed)
+        self._chk_modpack.stateChanged.connect(self._on_changed)
+        self._chk_merge_version.stateChanged.connect(self._on_changed)
+        self._chk_customize.stateChanged.connect(self._on_changed)
+        self._chk_show_linked.stateChanged.connect(self._on_changed)
+        self._chk_script_entry.stateChanged.connect(self._on_changed)
+        self._entry_output_dir.textChanged.connect(self._on_changed)
+
+    def _on_changed(self, *_):
+        if not self._loading:
+            self.settings_changed.emit()
 
     def retranslate_ui(self):
         self._general_group.setTitle(_tr("settings.group.general", "General"))
@@ -104,7 +114,6 @@ class SettingsTab(QWidget):
         self._output_group.setTitle(_tr("settings.group.default_output", "Default Output Directory"))
         self._entry_output_dir.setPlaceholderText(_tr("settings.default_output_ph", "Select default output directory..."))
         self._btn_browse.setText(_tr("common.browse", "Browse..."))
-        self._btn_save.setText(_tr("settings.save_settings", "Save Settings"))
 
     # ── Public accessors ─────────────────────────────────────────────
 
@@ -140,10 +149,6 @@ class SettingsTab(QWidget):
     def btn_browse(self):
         return self._btn_browse
 
-    @property
-    def btn_save(self):
-        return self._btn_save
-
     def get_output_dir(self):
         return self._entry_output_dir.text().strip()
 
@@ -170,10 +175,14 @@ class SettingsTab(QWidget):
         }
 
     def set_settings(self, settings):
-        self.set_lang(settings.get("lang", "en"))
-        self.set_output_dir(settings.get("output_dir", ""))
-        self._chk_modpack.setChecked(settings.get("modpack_organization", False))
-        self._chk_merge_version.setChecked(settings.get("merge_by_version", False))
-        self._chk_customize.setChecked(settings.get("customize_pack_after_merge", True))
-        self._chk_show_linked.setChecked(settings.get("show_linked_packs_after_merge", False))
-        self._chk_script_entry.setChecked(settings.get("allow_script_entry_edit", False))
+        self._loading = True
+        try:
+            self.set_lang(settings.get("lang", "en"))
+            self.set_output_dir(settings.get("output_dir", ""))
+            self._chk_modpack.setChecked(settings.get("modpack_organization", False))
+            self._chk_merge_version.setChecked(settings.get("merge_by_version", False))
+            self._chk_customize.setChecked(settings.get("customize_pack_after_merge", True))
+            self._chk_show_linked.setChecked(settings.get("show_linked_packs_after_merge", False))
+            self._chk_script_entry.setChecked(settings.get("allow_script_entry_edit", False))
+        finally:
+            self._loading = False

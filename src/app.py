@@ -278,8 +278,8 @@ class AutoBEWindow(QMainWindow):
         self.list_maker_tab.btn_organize.clicked.connect(self._list_maker_organize)
         self.list_maker_tab.btn_export.clicked.connect(self._list_maker_export)
 
-        # Settings tab
-        self.settings_tab.btn_save.clicked.connect(self._save_settings_from_tab)
+        # Settings tab — auto-save on any change
+        self.settings_tab.settings_changed.connect(self._save_settings_from_tab)
         self.settings_tab.btn_browse.clicked.connect(self._settings_browse_output)
         self.settings_tab.set_settings(self._settings)
 
@@ -627,6 +627,7 @@ class AutoBEWindow(QMainWindow):
         self.merge_by_version = new_settings.get("merge_by_version", False)
         self.customize_pack_after_merge = new_settings.get("customize_pack_after_merge", True)
         self.show_linked_packs_after_merge = new_settings.get("show_linked_packs_after_merge", False)
+        self.allow_script_entry_edit = new_settings.get("allow_script_entry_edit", False)
         out_dir = new_settings.get("output_dir", "")
         if out_dir and _os.path.isdir(out_dir):
             self._out_dir = out_dir
