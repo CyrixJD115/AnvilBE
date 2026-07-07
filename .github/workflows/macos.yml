@@ -72,6 +72,11 @@ jobs:
           echo "=== final contents ==="
           ls -la dist/macos/ || true
 
+      - name: Zip .app to preserve bundle structure
+        shell: bash
+        run: |
+          ditto -c -k --keepParent dist/macos/Anvil-MC.app dist/macos/Anvil-MC-macos.zip
+
       - name: Sanitize description for artifact name
         id: label
         shell: python
@@ -85,4 +90,4 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: Anvil-MC-macos-${{ inputs.version || steps.version.outputs.version }}${{ steps.label.outputs.suffix }}
-          path: dist/macos/Anvil-MC.app
+          path: dist/macos/Anvil-MC-macos.zip
