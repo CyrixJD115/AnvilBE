@@ -73,7 +73,7 @@ jobs:
           pip install -e .
 
       - name: Build with Nuitka
-        run: python build/build_nuitka.py ${{ matrix.build_flag }} --version ${{ steps.version.outputs.version }}
+        run: python build/build_nuitka.py ${{ matrix.build_flag }} --version "${{ steps.version.outputs.version }}"
 
       - name: Prepare macOS artifact
         if: runner.os == 'macOS'

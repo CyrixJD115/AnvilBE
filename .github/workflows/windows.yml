@@ -53,7 +53,7 @@ jobs:
           pip install -e .
 
       - name: Build with Nuitka
-        run: python build/build_nuitka.py --windows --version ${{ inputs.version || steps.version.outputs.version }}
+        run: python build/build_nuitka.py --windows --version "${{ inputs.version || steps.version.outputs.version }}"
 
       - name: Sanitize description for artifact name
         id: label

@@ -58,7 +58,7 @@ jobs:
           pip install -e .
 
       - name: Build with Nuitka
-        run: python build/build_nuitka.py --macos --version ${{ inputs.version || steps.version.outputs.version }}
+        run: python build/build_nuitka.py --macos --version "${{ inputs.version || steps.version.outputs.version }}"
 
       - name: Prepare macOS artifact
         shell: bash
