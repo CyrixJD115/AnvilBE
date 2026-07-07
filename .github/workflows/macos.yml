@@ -19,15 +19,15 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
           cache: pip
 
       - name: Cache Nuitka
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Library/Caches/Nuitka
           key: ${{ runner.os }}-nuitka-${{ hashFiles('pyproject.toml') }}
@@ -69,7 +69,7 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"suffix=-{cleaned}\n")
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Anvil-MC-macos-${{ inputs.version || '7.0.2' }}${{ steps.label.outputs.suffix }}
           path: dist/macos/Anvil-MC.app
