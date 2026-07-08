@@ -2,10 +2,24 @@
 Custom widgets for Anvil-MC.
 Includes themed status indicators and reusable UI components.
 """
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame, QListWidget
+from PySide6.QtWidgets import (
+    QWidget, QHBoxLayout, QLabel, QFrame, QListWidget, QApplication, QStyle
+)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QIcon
 from src.core.i18n import _tr
+
+
+def style_icon(pixmap: QStyle.StandardPixmap, size: int = 16) -> QIcon:
+    """Return a built-in Qt standard icon (no emoji/glyph fallback).
+
+    Uses the application style's :meth:`QStyle.standardIcon` so icons match
+    the current platform/theme. Returns an empty icon if unavailable.
+    """
+    app = QApplication.instance()
+    if app is None:
+        return QIcon()
+    return app.style().standardIcon(pixmap)
 
 
 class AchievementIndicator(QWidget):
@@ -24,8 +38,9 @@ class AchievementIndicator(QWidget):
         self._label.setStyleSheet("color: #C6C6C6; font-weight: 600;")
         self._layout.addWidget(self._label)
 
-        self._status_icon = QLabel("⏳")
-        self._status_icon.setStyleSheet("color: #FFFF55; font-size: 16px;")
+        self._status_icon = QLabel()
+        self._status_icon.setFixedSize(18, 18)
+        self._status_icon.setAlignment(Qt.AlignCenter)
         self._layout.addWidget(self._status_icon)
 
         self._status_text = QLabel()
@@ -45,24 +60,24 @@ class AchievementIndicator(QWidget):
     def set_status_unknown(self):
         """Set status to unknown/loading."""
         self._state = "unknown"
-        self._status_icon.setText("⏳")
-        self._status_icon.setStyleSheet("color: #FFFF55; font-size: 16px;")
+        self._status_icon.setPixmap(
+            style_icon(QStyle.SP_MessageBoxQuestion).pixmap(16, 16))
         self._status_text.setText(_tr("achievements.checking", "Checking..."))
         self._status_text.setStyleSheet("color: #FFFF55;")
 
     def set_status_compatible(self):
         """Set status to achievement-compatible."""
         self._state = "compatible"
-        self._status_icon.setText("✅")
-        self._status_icon.setStyleSheet("color: #55FF55; font-size: 16px;")
+        self._status_icon.setPixmap(
+            style_icon(QStyle.SP_DialogApplyButton).pixmap(16, 16))
         self._status_text.setText(_tr("achievements.compatible", "Compatible"))
         self._status_text.setStyleSheet("color: #55FF55;")
 
     def set_status_incompatible(self):
         """Set status to achievement-incompatible."""
         self._state = "incompatible"
-        self._status_icon.setText("❌")
-        self._status_icon.setStyleSheet("color: #FF5555; font-size: 16px;")
+        self._status_icon.setPixmap(
+            style_icon(QStyle.SP_MessageBoxCritical).pixmap(16, 16))
         self._status_text.setText(_tr("achievements.incompatible", "Incompatible"))
         self._status_text.setStyleSheet("color: #FF5555;")
 

@@ -1,0 +1,286 @@
+/* ===================================================================
+   Anvil-MC — Supplemental Dashboard Theme
+   Loaded AFTER minecraft_theme.qss.  Extends (never overrides) the base
+   blocky Minecraft palette with styles for the new sidebar navigation,
+   stacked content area, collapsible bottom drawer, and drop-zone widgets.
+   Palette mirrors the original file:
+     bg     #1A1A1A   panel   #2D2D2D   field  #252525   line  #3D3D3D
+     accent #7CBD4D   cyan    #5CE3E6   amber  #FF9F3C   red   #FF5555
+   =================================================================== */
+
+/* ===== Shell layout ===== */
+QWidget#sidebar {
+    background-color: #141414;
+    border-right: 4px solid #3D3D3D;
+    border-top: 3px solid #3D3D3D;
+    border-bottom: 3px solid #3D3D3D;
+}
+
+/* Accent stripe along the sidebar's right edge (sits inside the border) */
+QFrame[class="nav-accent"] {
+    background-color: #7CBD4D;
+    max-width: 3px;
+    min-width: 3px;
+    border: none;
+}
+
+QWidget#contentArea {
+    background-color: #1A1A1A;
+}
+
+QWidget#drawerHost {
+    background-color: #1A1A1A;
+}
+
+/* ===== Sidebar navigation buttons ===== */
+QPushButton[nav="true"] {
+    background-color: transparent;
+    color: #C6C6C6;
+    border: none;
+    border-left: 4px solid transparent;
+    border-radius: 0px;
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 11pt;
+    font-weight: 600;
+    min-height: 22px;
+}
+
+QPushButton[nav="true"]:hover {
+    background-color: #252525;
+    color: #FFFFFF;
+    border-left: 4px solid #4D4D4D;
+}
+
+QPushButton[nav="true"]:checked {
+    background-color: #2D2D2D;
+    color: #FFFFFF;
+    border-left: 4px solid #7CBD4D;
+}
+
+QPushButton[nav="true"]:checked:hover {
+    background-color: #333333;
+}
+
+/* Sidebar section headers (small uppercase labels) */
+QLabel[class="nav-section"] {
+    color: #606060;
+    font-size: 8pt;
+    font-weight: 700;
+    padding: 14px 14px 4px 14px;
+    background-color: transparent;
+}
+
+QLabel[class="nav-brand"] {
+    color: #7CBD4D;
+    font-size: 14pt;
+    font-weight: 800;
+    padding: 16px 14px 12px 14px;
+    background-color: transparent;
+    letter-spacing: 1px;
+}
+
+QLabel[class="nav-version"] {
+    color: #4D4D4D;
+    font-size: 8pt;
+    padding: 0px 14px 8px 14px;
+    background-color: transparent;
+}
+
+QFrame[class="nav-divider"] {
+    background-color: #3D3D3D;
+    max-height: 2px;
+    min-height: 2px;
+    border: none;
+    margin: 6px 10px;
+}
+
+/* The console toggle at the bottom of the sidebar */
+QPushButton[class="nav-console"] {
+    background-color: #252525;
+    color: #5CE3E6;
+    border: 2px solid #3D3D3D;
+    border-radius: 0px;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+}
+
+QPushButton[class="nav-console"]:hover {
+    background-color: #2D2D2D;
+    border: 2px solid #5CE3E6;
+}
+
+QPushButton[class="nav-console"]:checked {
+    background-color: #1A3A3A;
+    color: #7CEBF0;
+    border: 2px solid #5CE3E6;
+}
+
+/* ===== Stacked content area ===== */
+QStackedWidget {
+    background-color: #1A1A1A;
+    border: none;
+}
+
+/* ===== Bottom console drawer ===== */
+QWidget#consoleDrawer {
+    background-color: #141414;
+    border-top: 3px solid #3D3D3D;
+}
+
+QWidget#consoleDrawer[hidden="true"] {
+    max-height: 0px;
+    min-height: 0px;
+    border: none;
+    padding: 0px;
+    margin: 0px;
+}
+
+QLabel[class="drawer-title"] {
+    color: #5CE3E6;
+    font-size: 10pt;
+    font-weight: 700;
+    padding: 2px 0px;
+    background-color: transparent;
+}
+
+/* ===== Drop zones ===== */
+QFrame[class="dropzone"] {
+    background-color: #252525;
+    border: 3px dashed #3D3D3D;
+    border-radius: 0px;
+}
+
+QFrame[class="dropzone"][drag-active="true"] {
+    background-color: #1F3320;
+    border: 3px dashed #7CBD4D;
+}
+
+QLabel[class="dropzone-hint"] {
+    color: #888888;
+    font-size: 10pt;
+    background-color: transparent;
+}
+
+QLabel[class="dropzone-icon"] {
+    color: #4D4D4D;
+    font-size: 28px;
+    background-color: transparent;
+}
+
+QFrame[class="dropzone"][drag-active="true"] QLabel[class="dropzone-icon"] {
+    color: #7CBD4D;
+}
+
+QFrame[class="dropzone"][drag-active="true"] QLabel[class="dropzone-hint"] {
+    color: #C6C6C6;
+}
+
+/* Drag-active state on line edits (path input fields) */
+QLineEdit[drag-active="true"] {
+    background-color: #1F3320;
+    border: 3px solid #7CBD4D;
+    color: #FFFFFF;
+}
+
+/* ===== Action block (Run Pipeline) ===== */
+QFrame[class="action-block"] {
+    background-color: #2D2D2D;
+    border: 3px solid #3D3D3D;
+}
+
+QLabel[class="action-title"] {
+    color: #FFFFFF;
+    font-size: 13pt;
+    font-weight: 800;
+    background-color: transparent;
+}
+
+QLabel[class="action-subtitle"] {
+    color: #888888;
+    font-size: 9pt;
+    background-color: transparent;
+}
+
+/* ===== Inline compact toggle chips (dashboard quick options) ===== */
+QCheckBox[class="chip"] {
+    background-color: #252525;
+    border: 2px solid #3D3D3D;
+    padding: 8px 12px;
+    spacing: 8px;
+}
+
+QCheckBox[class="chip"]:checked {
+    background-color: #1F3320;
+    border: 2px solid #7CBD4D;
+}
+
+/* ===== Sub-tab bar inside Tools view ===== */
+QTabBar[sub="true"] {
+    background-color: transparent;
+}
+
+QTabBar[sub="true"]::tab {
+    background-color: #3D3D3D;
+    color: #C6C6C6;
+    padding: 8px 16px;
+    border: 2px solid #3D3D3D;
+    border-bottom: none;
+    margin-right: 2px;
+}
+
+QTabBar[sub="true"]::tab:selected {
+    background-color: #7CBD4D;
+    color: #FFFFFF;
+    border: 2px solid #5A9A3D;
+    border-bottom: none;
+}
+
+QTabBar[sub="true"]::tab:hover:!selected {
+    background-color: #4D4D4D;
+}
+
+/* ===== View scroll area wrapper ===== */
+QScrollArea[class="view-scroll"] {
+    background-color: #1A1A1A;
+    border: none;
+}
+
+QScrollArea[class="view-scroll"] > QWidget > QWidget {
+    background-color: #1A1A1A;
+}
+
+/* ===== Window-wide drag-drop overlay ===== */
+QWidget#dropOverlay {
+    background-color: rgba(124, 189, 77, 0.12);
+    border: none;
+}
+
+QFrame[class="drop-overlay-frame"] {
+    border: 4px dashed #7CBD4D;
+    background-color: rgba(20, 40, 20, 0.55);
+    border-radius: 0px;
+}
+
+QLabel[class="drop-overlay-icon"] {
+    color: #7CBD4D;
+    font-size: 64px;
+    background-color: transparent;
+    border: none;
+}
+
+QLabel[class="drop-overlay-title"] {
+    color: #FFFFFF;
+    font-size: 22pt;
+    font-weight: 800;
+    background-color: transparent;
+    border: none;
+}
+
+QLabel[class="drop-overlay-subtitle"] {
+    color: #C6C6C6;
+    font-size: 11pt;
+    background-color: transparent;
+    border: none;
+}

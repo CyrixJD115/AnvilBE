@@ -6,7 +6,8 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QListWidget,
     QPushButton, QLineEdit, QLabel, QComboBox
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
+from src.ui.drop_widgets import DropLineEdit
 from src.core.i18n import _tr
 
 
@@ -65,7 +66,7 @@ class MCPackerTab(QWidget):
         output_layout = QHBoxLayout(self._output_group)
 
         self._out_label = QLabel()
-        self._output_path = QLineEdit()
+        self._output_path = DropLineEdit()
         self._output_path.setPlaceholderText("")
         self._btn_browse = QPushButton()
 

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QLabel, QComboBox, QPushButton, QLineEdit, QFileDialog
 )
 from PySide6.QtCore import Qt, Signal
+from src.ui.drop_widgets import DropLineEdit
 from src.core.i18n import available_languages, _tr
 
 
@@ -77,7 +78,7 @@ class SettingsTab(QWidget):
         self._output_group = QGroupBox("")
         output_layout = QHBoxLayout(self._output_group)
 
-        self._entry_output_dir = QLineEdit()
+        self._entry_output_dir = DropLineEdit()
         self._entry_output_dir.setPlaceholderText("")
         self._btn_browse = QPushButton()
 

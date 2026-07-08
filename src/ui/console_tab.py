@@ -58,10 +58,12 @@ class QtLogHandler(logging.Handler):
             self.handleError(record)
 
 
-class ConsoleTab(QWidget):
+class ConsolePanel(QWidget):
     """
     Read-only console showing all application log output.
     Includes level filter dropdown and clear/copy buttons.
+
+    Shown as a full-body view in the sidebar (under the SYSTEM section).
     """
 
     def __init__(self, parent=None):
@@ -88,11 +90,12 @@ class ConsoleTab(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
 
         # ── Toolbar ──────────────────────────────────────────────────
         toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(0, 0, 0, 0)
 
         level_label = QLabel()
         level_label.setStyleSheet("color: #C6C6C6; font-weight: bold;")
@@ -124,7 +127,7 @@ class ConsoleTab(QWidget):
         # ── Log viewer ───────────────────────────────────────────────
         self._text = QTextEdit()
         self._text.setReadOnly(True)
-        self._text.setMinimumHeight(400)
+        self._text.setMinimumHeight(160)
         # Minecraft-style dark terminal
         self._text.setStyleSheet(
             "QTextEdit {"
@@ -143,6 +146,12 @@ class ConsoleTab(QWidget):
         self._level_label.setText(_tr("console.log_level", "Log Level:"))
         self._btn_copy.setText(_tr("console.copy_all", "Copy All"))
         self._btn_clear.setText(_tr("common.clear", "Clear"))
+
+    def set_focus_to_log(self):
+        """Move keyboard focus to the log viewer (for QOL)."""
+        self._text.setFocus()
+
+    # ── Log handling ─────────────────────────────────────────────────
 
     def _append_log(self, message: str, level: int):
         """Append a log line with color based on level (runs in GUI thread)."""
@@ -167,3 +176,7 @@ class ConsoleTab(QWidget):
     def _copy_all(self):
         text = self._text.toPlainText()
         QApplication.instance().clipboard().setText(text)
+
+
+# Backwards-compatible alias — app.py historically referenced ConsoleTab.
+ConsoleTab = ConsolePanel

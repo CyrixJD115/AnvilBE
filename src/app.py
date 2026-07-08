@@ -21,11 +21,11 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QTabWidget, QMessageBox, QStatusBar, QMenuBar, QFileDialog,
-    QLabel, QDialog
+    QStackedWidget, QMessageBox, QStatusBar, QMenuBar, QFileDialog,
+    QLabel, QDialog, QTreeWidgetItem
 )
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt, QTimer, QEvent
+from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 
 # ── Core modules ─────────────────────────────────────────────────────
 from src.core.file_utils import (
@@ -42,13 +42,17 @@ from src.core.pack_utils import (
 from src.core.merger import UniversalJsonMerger
 from src.core.identifier_manager import IdentifierManager
 
-# ── UI tabs ──────────────────────────────────────────────────────────
+# ── UI views & shell ─────────────────────────────────────────────────
 from src.ui.merger_tab import MergerTab
 from src.ui.mcpacker_tab import MCPackerTab
 from src.ui.list_maker_tab import ListMakerTab
 from src.ui.help_tab import HelpTab
 from src.ui.settings_tab import SettingsTab
-from src.ui.console_tab import ConsoleTab
+from src.ui.sidebar import SidebarNav
+from src.ui.tools_view import ToolsView
+from src.ui.recents_view import RecentsView
+from src.ui.console_tab import ConsolePanel
+from src.ui.drop_overlay import DropOverlay
 
 # ── App version ──────────────────────────────────────────────────────
 _VERSION_FILE = Path(__file__).resolve().parent.parent / "version.yaml"
@@ -100,6 +104,17 @@ def _load_stylesheet():
         return ""
 
 
+def _load_supplemental_stylesheet():
+    """Load the supplemental dashboard QSS (sidebar/drawer/drop zones)."""
+    qss_path = Path(__file__).parent / "theme" / "dashboard_theme.qss"
+    try:
+        with open(qss_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        logging.warning(f"Supplemental stylesheet not found: {qss_path}")
+        return ""
+
+
 class AutoBEWindow(QMainWindow):
     """
     Main application window for Anvil-MC.
@@ -147,54 +162,107 @@ class AutoBEWindow(QMainWindow):
         self._load_styles()
         self._connect_signals()
 
-        # Apply initial output dir from settings
+        # Apply saved output dir from settings (input memory)
         saved_out = self._settings.get("output_dir", "")
         if saved_out and os.path.isdir(saved_out):
             self._out_dir = saved_out
+            # block signals so we don't re-save on init
+            self.merger_tab.entry_output_dir.blockSignals(True)
             self.merger_tab.entry_output_dir.setText(saved_out)
+            self.merger_tab.entry_output_dir.blockSignals(False)
 
         # Apply saved output format
         self.merger_tab.set_output_format(self._output_format)
+
+        # Mirror merge options onto the dashboard quick-option chips
+        self.merger_tab.set_option("modpack_organization", self.modpack_organization)
+        self.merger_tab.set_option("merge_by_version", self.merge_by_version)
+        self.merger_tab.set_option("customize_pack_after_merge", self.customize_pack_after_merge)
+
+        # Restore last used source list (input memory) if present and valid.
+        # Reject system/generic directories (e.g. /tmp) so they never pollute
+        # the dashboard — only real user-selected pack sources are remembered.
+        recent = [p for p in self._settings.get("recent_sources", [])
+                  if os.path.exists(p) and _is_real_pack_source(p)]
+        if recent:
+            self.merger_tab.set_file_list(recent)
+            self.mode_label.setText(_tr("status.files_loaded",
+                                        "{n} file(s) loaded").format(n=len(recent)))
+
+        # Restore merge-session history into the Recents view
+        self.recents_view.load_history(self._settings.get("merge_history", []))
 
     # ──────────────────────────────────────────────────────────────────
     # UI SETUP
     # ──────────────────────────────────────────────────────────────────
 
     def _setup_ui(self):
-        """Set up the main window, tabs, menus, and status bar."""
+        """Set up the main window shell: sidebar + stacked content + console drawer."""
         self.setWindowTitle("Anvil-MC")
-        self.setMinimumSize(900, 700)
-        self.resize(1000, 750)
+        self.setMinimumSize(980, 720)
+        self.resize(1180, 800)
 
-        # Central widget
+        # ── Central widget ───────────────────────────────────────────
         central = QWidget()
         central.setObjectName("centralWidget")
         self.setCentralWidget(central)
 
         main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Tab widget
-        self.notebook = QTabWidget()
-        main_layout.addWidget(self.notebook)
+        # shell row: sidebar | content area
+        shell_row = QHBoxLayout()
+        shell_row.setContentsMargins(0, 0, 0, 0)
+        shell_row.setSpacing(0)
 
-        # Create tabs
+        # ── Sidebar navigation ───────────────────────────────────────
+        self.sidebar = SidebarNav(app_version=f"v{APP_VERSION}")
+        self.sidebar.view_requested.connect(self._switch_view)
+        shell_row.addWidget(self.sidebar)
+
+        # ── Content area: stacked views ──────────────────────────────
+        content_area = QWidget()
+        content_area.setObjectName("contentArea")
+        content_layout = QVBoxLayout(content_area)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
+        # Stacked views (console is now a full-body view in the stack)
+        self.content_stack = QStackedWidget()
+        content_layout.addWidget(self.content_stack, 1)
+
+        shell_row.addWidget(content_area, 1)
+
+        main_layout.addLayout(shell_row, 1)
+
+        # ── Build views ──────────────────────────────────────────────
         self.merger_tab = MergerTab()
-        self.mcpacker_tab = MCPackerTab()
-        self.list_maker_tab = ListMakerTab()
+        self.tools_view = ToolsView()
+        self.mcpacker_tab = self.tools_view.mcpacker_tab
+        self.list_maker_tab = self.tools_view.list_maker_tab
+        self.recents_view = RecentsView()
+        self.console_tab = ConsolePanel()
         self.settings_tab = SettingsTab()
         self.help_tab = HelpTab()
-        self.console_tab = ConsoleTab()
 
-        self.notebook.addTab(self.merger_tab, "")
-        self.notebook.addTab(self.mcpacker_tab, "")
-        self.notebook.addTab(self.list_maker_tab, "")
-        self.notebook.addTab(self.settings_tab, "")
-        self.notebook.addTab(self.help_tab, "")
-        self.notebook.addTab(self.console_tab, "")
+        # Add views to the stack in nav order
+        self.content_stack.addWidget(self.merger_tab)     # dashboard
+        self.content_stack.addWidget(self.tools_view)     # tools
+        self.content_stack.addWidget(self.recents_view)   # recents
+        self.content_stack.addWidget(self.console_tab)    # console
+        self.content_stack.addWidget(self.settings_tab)   # settings
+        self.content_stack.addWidget(self.help_tab)       # help
 
-        # Status bar
+        # ── Window-wide drag-and-drop overlay ────────────────────────
+        self.drop_overlay = DropOverlay()
+        self.drop_overlay.attach(self)
+
+        # Select the dashboard by default
+        self.sidebar.select("dashboard")
+        self.content_stack.setCurrentWidget(self.merger_tab)
+
+        # ── Status bar ───────────────────────────────────────────────
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.mode_label = QLabel(_tr("status.ready", "Ready"))
@@ -203,11 +271,17 @@ class AutoBEWindow(QMainWindow):
         self.trademark_label = QLabel("Anvil-MC")
         self.trademark_label.setProperty("class", "trademark")
         self.status_bar.addPermanentWidget(self.trademark_label)
+        # Surface hover tooltips in the status bar (micro-documentation QOL)
+        self.status_bar.showMessage(_tr("status.ready", "Ready"))
 
-        # Menu bar
+        # ── Menu bar ─────────────────────────────────────────────────
         self._create_menu_bar()
-        # Apply initial translations to tabs + menus
+        # Apply initial translations
         self._retranslate_ui()
+
+        # ── Keyboard shortcut: jump to the Console view from anywhere ──
+        QShortcut(QKeySequence("Ctrl+L"), self,
+                  activated=lambda: self._switch_view("console"))
 
     def _create_menu_bar(self):
         """Create the menu bar with File and Help menus (text set via _retranslate_ui)."""
@@ -231,34 +305,26 @@ class AutoBEWindow(QMainWindow):
         self._menu_tr_targets.append((act.setText, "menu.about", "&About"))
 
     def _retranslate_ui(self):
-        """Re-apply translatable UI strings (tabs + menus) after a language change."""
-        tabs = [
-            (0, "tabs.merger", "Merger"),
-            (1, "tabs.pack_utility", "Pack Utility"),
-            (2, "tabs.pack_organizer", "Pack Organizer"),
-            (3, "tabs.settings", "Settings"),
-            (4, "tabs.help", "Help"),
-            (5, "tabs.console", "Console"),
-        ]
-        for idx, key, fallback in tabs:
-            self.notebook.setTabText(idx, _tr(key, fallback))
+        """Re-apply translatable UI strings (sidebar + views + menus) after a language change."""
         for setter, key, fallback in getattr(self, "_menu_tr_targets", []):
             setter(_tr(key, fallback))
-        # Retranslate every child tab/widget
-        for child in (self.merger_tab, self.mcpacker_tab, self.list_maker_tab,
-                      self.settings_tab, self.help_tab, self.console_tab):
+        # Retranslate the sidebar and every child view/widget.
+        for child in (self.sidebar, self.merger_tab, self.tools_view,
+                      self.recents_view, self.console_tab, self.settings_tab,
+                      self.help_tab, self.drop_overlay):
             if hasattr(child, "retranslate_ui"):
                 child.retranslate_ui()
 
     def _load_styles(self):
-        """Apply the QSS stylesheet."""
+        """Apply the QSS stylesheets (base theme then supplemental dashboard theme)."""
         qss = _load_stylesheet()
-        if qss:
-            self.setStyleSheet(qss)
+        dash = _load_supplemental_stylesheet()
+        if qss or dash:
+            self.setStyleSheet(qss + "\n" + dash)
 
     def _connect_signals(self):
         """Connect UI signals to handlers."""
-        # Merger tab
+        # Merger dashboard
         self.merger_tab.btn_add.clicked.connect(self._add_files)
         self.merger_tab.btn_add_folder.clicked.connect(self._add_folder)
         self.merger_tab.btn_remove.clicked.connect(self._remove_files)
@@ -267,6 +333,11 @@ class AutoBEWindow(QMainWindow):
         self.merger_tab.btn_start.clicked.connect(self._start_merge)
         self.merger_tab.btn_cancel.clicked.connect(self._cancel_merge)
         self.merger_tab.file_list_box.files_dropped.connect(self._on_files_dropped)
+        self.merger_tab.paths_dropped.connect(self._on_files_dropped)
+        self.merger_tab.option_changed.connect(self._on_dashboard_option_changed)
+        # Persist input memory as the user edits paths.
+        self.merger_tab.entry_output_dir.textChanged.connect(self._on_output_dir_changed)
+        self.merger_tab.entry_output_dir.paths_dropped.connect(self._on_files_dropped)
 
         # MCPacker tab
         self.mcpacker_tab.btn_add.clicked.connect(self._mcpacker_add)
@@ -285,12 +356,82 @@ class AutoBEWindow(QMainWindow):
         self.settings_tab.btn_browse.clicked.connect(self._settings_browse_output)
         self.settings_tab.set_settings(self._settings)
 
+        # Window-wide drag-and-drop overlay → add dropped packs to dashboard.
+        self.drop_overlay.paths_dropped.connect(self._on_files_dropped)
+
+        # Recents view → restore a saved source list onto the dashboard.
+        self.recents_view.restore_requested.connect(self._on_recents_restore)
+
+    # ──────────────────────────────────────────────────────────────────
+    # NAVIGATION / SHELL
+    # ──────────────────────────────────────────────────────────────────
+
+    def _switch_view(self, view_id: str):
+        """Switch the stacked content area to the requested view."""
+        widget_map = {
+            "dashboard": self.merger_tab,
+            "tools": self.tools_view,
+            "recents": self.recents_view,
+            "console": self.console_tab,
+            "settings": self.settings_tab,
+            "help": self.help_tab,
+        }
+        widget = widget_map.get(view_id)
+        if widget is not None:
+            self.content_stack.setCurrentWidget(widget)
+
+    def _on_dashboard_option_changed(self, name: str, value: bool):
+        """A quick-option chip changed — apply + persist it."""
+        if name == "modpack_organization":
+            self.modpack_organization = value
+        elif name == "merge_by_version":
+            self.merge_by_version = value
+        elif name == "customize_pack_after_merge":
+            self.customize_pack_after_merge = value
+        # Mirror into the settings tab so both surfaces stay consistent.
+        try:
+            if name == "modpack_organization":
+                self.settings_tab.chk_modpack.setChecked(value)
+            elif name == "merge_by_version":
+                self.settings_tab.chk_merge_version.setChecked(value)
+            elif name == "customize_pack_after_merge":
+                self.settings_tab.chk_customize.setChecked(value)
+        except Exception:
+            pass
+        self._save_settings()
+
+    def _on_output_dir_changed(self, _text: str):
+        """Persist the output directory as the user edits it (input memory)."""
+        self._out_dir = self.merger_tab.entry_output_dir.text().strip()
+        self._save_settings()
+
+    def _on_recents_restore(self, sources):
+        """Restore a saved source list onto the dashboard from Recents."""
+        if not sources:
+            return
+        self.merger_tab.set_file_list(list(sources))
+        self.mode_label.setText(_tr("status.files_loaded",
+                                    "{n} file(s) loaded").format(n=len(sources)))
+        self.merger_tab.achievement_indicator.set_status_unknown()
+        # Jump to the dashboard so the user sees the restored list.
+        self.sidebar.select("dashboard")
+        self.content_stack.setCurrentWidget(self.merger_tab)
+
     # ──────────────────────────────────────────────────────────────────
     # SETTINGS
     # ──────────────────────────────────────────────────────────────────
 
     def _get_settings_path(self):
-        """Get the path for the settings file."""
+        """Get the path for the settings file.
+
+        When the ``ANVIL_MC_TEST_SETTINGS`` env var is set, the settings file
+        is redirected to that path instead of the user's real
+        ``~/.anvil-mc/settings.json`` — so automated tests and smoke runs
+        never read or clobber the user's actual settings.
+        """
+        override = os.environ.get("ANVIL_MC_TEST_SETTINGS")
+        if override:
+            return override
         base = os.path.join(os.path.expanduser("~"), ".anvil-mc")
         try:
             os.makedirs(base, exist_ok=True)
@@ -310,8 +451,13 @@ class AutoBEWindow(QMainWindow):
         return {}
 
     def _save_settings(self):
-        """Save current settings to JSON file."""
+        """Save current settings to JSON file (includes input memory)."""
         path = self._get_settings_path()
+        # Snapshot the current source list so it can be restored next boot.
+        try:
+            recent_sources = self.merger_tab.get_file_list()
+        except Exception:
+            recent_sources = self._settings.get("recent_sources", [])
         settings = {
             "lang": self._current_lang,
             "output_dir": self._out_dir,
@@ -321,6 +467,10 @@ class AutoBEWindow(QMainWindow):
             "show_linked_packs_after_merge": self.show_linked_packs_after_merge,
             "allow_script_entry_edit": self.allow_script_entry_edit,
             "output_format": getattr(self, '_output_format', 'mcaddon'),
+            # Persistent input memory: last used source paths.
+            "recent_sources": recent_sources,
+            # Merge-session history (recents view).
+            "merge_history": self.recents_view.get_history() if hasattr(self, "recents_view") else [],
         }
         try:
             with open(path, 'w', encoding='utf-8') as f:
@@ -579,6 +729,9 @@ class AutoBEWindow(QMainWindow):
 
         if success:
             self.merger_tab.achievement_indicator.set_status_compatible()
+            # Record this successful merge in the Recents history.
+            self.recents_view.add_entry(self._files, self._out_dir)
+            self._save_settings()
             QMessageBox.information(self, _tr("msg.merge_complete", "Merge Complete"), message)
         else:
             self.merger_tab.achievement_indicator.set_status_incompatible()
@@ -612,6 +765,12 @@ class AutoBEWindow(QMainWindow):
     def _save_settings_from_tab(self):
         """Save settings from the Settings tab and apply them."""
         new_settings = self.settings_tab.get_settings()
+        # Preserve input-memory fields not surfaced in the Settings tab.
+        new_settings["output_format"] = getattr(self, '_output_format', 'mcaddon')
+        new_settings["recent_sources"] = self._settings.get("recent_sources", [])
+        new_settings["merge_history"] = (self.recents_view.get_history()
+                                         if hasattr(self, "recents_view")
+                                         else self._settings.get("merge_history", []))
         path = self._get_settings_path()
         try:
             with open(path, 'w', encoding='utf-8') as f:
@@ -633,7 +792,13 @@ class AutoBEWindow(QMainWindow):
         out_dir = new_settings.get("output_dir", "")
         if out_dir and os.path.isdir(out_dir):
             self._out_dir = out_dir
+            self.merger_tab.entry_output_dir.blockSignals(True)
             self.merger_tab.entry_output_dir.setText(out_dir)
+            self.merger_tab.entry_output_dir.blockSignals(False)
+        # Mirror merge options onto the dashboard quick-option chips.
+        self.merger_tab.set_option("modpack_organization", self.modpack_organization)
+        self.merger_tab.set_option("merge_by_version", self.merge_by_version)
+        self.merger_tab.set_option("customize_pack_after_merge", self.customize_pack_after_merge)
         self._settings = new_settings
 
     # ──────────────────────────────────────────────────────────────────
@@ -2067,8 +2232,9 @@ class AutoBEWindow(QMainWindow):
     # ──────────────────────────────────────────────────────────────────
 
     def _show_help(self):
-        """Switch to the help tab."""
-        self.notebook.setCurrentWidget(self.help_tab)
+        """Switch to the help view via the sidebar."""
+        self.sidebar.select("help")
+        self.content_stack.setCurrentWidget(self.help_tab)
 
     def _show_about(self):
         """Show the About dialog."""
@@ -2139,3 +2305,36 @@ def _apply_pack_fixers(fixers, pack_basename, zip_file):
 def _thread_is_main():
     """Return True if called from the main thread."""
     return threading.current_thread() is threading.main_thread()
+
+
+# Generic/system directories that should never be remembered as a pack source.
+_SYSTEM_DIR_NAMES = {
+    "tmp", "temp", "var", "etc", "usr", "bin", "sbin", "lib", "lib64",
+    "sys", "proc", "dev", "run", "opt", "root", "boot", "mnt", "srv",
+}
+
+
+def _is_real_pack_source(path: str) -> bool:
+    """Return True if *path* looks like a genuine user-selected pack source.
+
+    Rejects system/generic directories (``/tmp``, ``/var``, ...) and bare
+    non-pack paths so they never pollute the dashboard via input memory.
+    Pack *files* (``.mcpack``/``.mcaddon``/``.zip``) and user folders are
+    accepted.
+    """
+    if not path:
+        return False
+    # Pack files are always valid sources.
+    if path.lower().endswith((".mcpack", ".mcaddon", ".zip")):
+        return True
+    # For directories, reject well-known system locations.
+    if os.path.isdir(path):
+        base = os.path.basename(os.path.normpath(path)).lower()
+        if base in _SYSTEM_DIR_NAMES:
+            return False
+        # Reject bare "/" or system roots.
+        norm = os.path.normpath(path)
+        if norm in ("/", os.path.sep):
+            return False
+        return True
+    return False
