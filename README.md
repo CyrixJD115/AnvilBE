@@ -59,11 +59,7 @@ Or right-click the app → **Open** → click **Open**. Only needs to be done on
 
 ## Acknowledgements
 
-Inspired by **AutoBE** by Frosty — the tool that pioneered bedrock addon merging. This project takes those ideas further with a completely revamped codebase, better QOL, lots of bug fixes, and an extensible architecture.
-
-AutoBE was great, but over time development got locked behind a paywall with unreliable backups and delayed releases. I wanted to build something the community can truly own, contribute to, and benefit from — open source, free, and transparent.
-
-Thanks to everyone helping build this.
+Inspired by **AutoBE** by Frosty. I took the source code and completely restructured it, better QOL, loads of bug fixes, and opened it up to the community. Thanks to everyone helping build this.
 
 ## License
 
