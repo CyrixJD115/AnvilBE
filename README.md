@@ -47,6 +47,16 @@ anvil-mc
 
 There's also a pack utility for converting folders to `.mcpack` and back, a file organizer, and a settings panel for language and defaults.
 
+### macOS — First Run
+
+macOS may block the app because it isn't signed. To fix:
+
+```bash
+xattr -dr com.apple.quarantine Anvil-MC.app
+```
+
+Or right-click the app → **Open** → click **Open**. Only needs to be done once.
+
 ## Acknowledgements
 
 Based on AutoBE by Frosty. I took the source and completely restructured it — better quality of life, loads of bug fixes, and opened up to the community. Thanks to everyone contributing and helping make this better.
