@@ -59,7 +59,7 @@ Or right-click the app → **Open** → click **Open**. Only needs to be done on
 
 ## Acknowledgements
 
-Based on AutoBE by Frosty. I took the source and completely restructured it — better quality of life, loads of bug fixes, and opened up to the community. Thanks to everyone contributing and helping make this better.
+Based on AutoBE by Frosty. I took the source and completely restructured it — better QOL, loads of bug fixes, and a much cleaner codebase. Wanted to open this up to the community instead of keeping it locked behind a paywall with unreliable backups and delayed releases. Thanks to everyone helping build this.
 
 ## License
 
