@@ -115,20 +115,9 @@ resources/                # Help content HTML
 
 ## Acknowledgements
 
-Anvil-MC was inspired by **AutoBE** — a tool built by Frosty that pioneered
-bedrock addon merging and fixer workflows.  This project takes those ideas
-further: the codebase has been completely revamped and restructured with
-better quality-of-life, dozens of bug fixes, a modern UI, and a more
-extensible architecture.
-
-AutoBE itself has a rich history, but over time development became locked
-behind a paywall with unreliable backups and delayed releases.  I decided to
-take the concept into my own hands and build something the community can
-truly own, contribute to, and benefit from — open source, free, and
-transparent.
-
-Thank you to everyone who has filed issues, submitted pull requests, or
-helped test.  This tool is for you.
+Inspired by AutoBE by Frosty. Completely revamped, restructured, better QOL,
+and lots of bug fixes. Wanted to open this up to the community instead of
+keeping it locked down. Thanks to everyone helping build this.
 
 ## License
 
