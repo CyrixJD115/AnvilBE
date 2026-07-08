@@ -1,128 +1,160 @@
 """
-Pack-level fixer: creates minimal BP item definitions for any custom item that
-appears in a recipe result but has no corresponding BP items/ definition AND is
-not a custom block (those are handled by fix_missing_block_definitions.py).
+Generate missing BP item definitions and clean up stale RP item files.
 
-Also removes stale RP items/ definitions that use the old pre-1.16 format
-("1.10" / "1.10.0") when the BP already has a modern definition — they cause
-Bedrock to log:
-  [Item][error] - Resource pack has item definitions not found in the behavior pack.
+Two concerns handled:
 
-Root cause: addons from 2020-2022 placed item client data in RP items/ (old
-system). Modern Bedrock dropped this in favour of BP item definitions alone;
-the leftover RP items confuse the modern validator.
+  1. **Missing BP item definitions** — any custom item that appears as a
+     recipe result but lacks a corresponding ``items/<name>.json`` in the
+     behaviour pack gets a minimal definition.  Items already covered by block
+     definitions (``fix_missing_block_definitions``) are skipped.
+
+  2. **Stale RP item files** — resource-pack item definitions using the old
+     pre-1.16 format (``"1.10"`` / ``"1.10.0"``) are replaced with ``{}`` when
+     a modern BP definition exists; leftover RP files confuse the Bedrock
+     validator:
+       [Item][error] - Resource pack has item definitions not found in BP.
+
+Operates at the **pack level** (``fix_pack``).
 """
 
-import json
+from __future__ import annotations
+
+import json as _json_module
+from typing import Iterator
+
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Create missing BP item definitions for recipe results; remove obsolete RP item files"
 
-_OLD_RP_ITEM_VERSIONS = {"1.10", "1.10.0"}
+_OBSOLETE_RP_VERSIONS = frozenset({"1.10", "1.10.0"})
 
 
-def _find_all(names, subpath_contains, suffix='.json'):
-    """Yield names whose path contains subpath_contains and ends with suffix."""
+# ── Internal helpers ───────────────────────────────────────────────────────
+
+def _matching_paths(names: list[str], subdir: str, suffix: str = ".json") -> Iterator[str]:
+    """Yield paths under *subdir* that end with *suffix*."""
     for n in names:
-        if subpath_contains in n and n.endswith(suffix):
+        if subdir in n and n.endswith(suffix):
             yield n
 
 
-def fix_pack(pack_basename, zip_file):
-    names = list(zip_file.namelist())
-
-    # Collect all BP-defined item identifiers (any items/ subfolder)
-    bp_item_ids = set()
-    for name in _find_all(names, '/items/'):
-        try:
-            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
-            iid = (d.get('minecraft:item') or {}).get('description', {}).get('identifier', '')
-            if iid:
-                bp_item_ids.add(iid)
-        except Exception:
-            pass
-
-    # Collect all BP-defined block identifiers (any blocks/ subfolder)
-    bp_block_ids = set()
-    for name in _find_all(names, '/blocks/'):
-        try:
-            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
-            bid = (d.get('minecraft:block') or {}).get('description', {}).get('identifier', '')
-            if bid:
-                bp_block_ids.add(bid)
-        except Exception:
-            pass
-
-    # Collect custom blocks from RP blocks.json (flat file, not inside a blocks/ folder)
-    rp_block_ids = set()
-    for name in names:
-        base = name.rsplit('/', 1)[-1]
-        if base == 'blocks.json' and '/blocks/' not in name:
+def _collect_ids(names: list[str], archive: "zipfile.ZipFile") -> set[str]:
+    """Collect identifiers from ``items/`` and ``blocks/`` definitions."""
+    ids: set[str] = set()
+    for subdir in ("/items/", "/blocks/"):
+        for path in _matching_paths(names, subdir):
             try:
-                rb = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
-                if isinstance(rb, dict):
-                    for bid in rb:
-                        if ':' in bid and not bid.startswith('minecraft:'):
-                            rp_block_ids.add(bid)
+                obj = _json_module.loads(
+                    archive.read(path).decode("utf-8", errors="ignore")
+                )
+                desc = (obj.get("minecraft:item") or obj.get("minecraft:block") or {}).get("description", {})
+                iid = desc.get("identifier", "")
+                if iid:
+                    ids.add(iid)
+            except Exception:
+                pass
+    return ids
+
+
+def _rp_block_ids(names: list[str], archive: "zipfile.ZipFile") -> set[str]:
+    """Collect custom block identifiers from the RP ``blocks.json`` (flat file)."""
+    ids: set[str] = set()
+    for path in names:
+        if path.rsplit("/", 1)[-1] == "blocks.json" and "/blocks/" not in path:
+            try:
+                obj = _json_module.loads(
+                    archive.read(path).decode("utf-8", errors="ignore")
+                )
+                if isinstance(obj, dict):
+                    for bid in obj:
+                        if ":" in bid and not bid.startswith("minecraft:"):
+                            ids.add(bid)
             except Exception:
                 pass
             break
+    return ids
 
-    # Collect all recipe result item IDs using custom namespaces
-    recipe_result_ids = set()
-    for name in _find_all(names, '/recipes/'):
+
+def _recipe_result_ids(names: list[str], archive: "zipfile.ZipFile") -> set[str]:
+    """Collect non-vanilla item identifiers used as recipe results."""
+    ids: set[str] = set()
+    _RECIPE_KEYS = (
+        "minecraft:recipe_shaped",
+        "minecraft:recipe_shapeless",
+        "minecraft:recipe_furnace",
+        "minecraft:recipe_brewing_mix",
+        "minecraft:recipe_brewing_container",
+    )
+
+    for path in _matching_paths(names, "/recipes/"):
         try:
-            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
-            for recipe_type in ('minecraft:recipe_shaped', 'minecraft:recipe_shapeless',
-                                'minecraft:recipe_furnace', 'minecraft:recipe_brewing_mix',
-                                'minecraft:recipe_brewing_container'):
-                recipe = d.get(recipe_type, {})
-                result = recipe.get('result', {})
-                if isinstance(result, dict):
-                    iid = result.get('item', '')
-                    if iid and ':' in iid and not iid.startswith('minecraft:'):
-                        recipe_result_ids.add(iid)
-                elif isinstance(result, list):
-                    for r in result:
-                        iid = r.get('item', '') if isinstance(r, dict) else ''
-                        if iid and ':' in iid and not iid.startswith('minecraft:'):
-                            recipe_result_ids.add(iid)
+            obj = _json_module.loads(
+                archive.read(path).decode("utf-8", errors="ignore")
+            )
         except Exception:
-            pass
-
-    new_bp_files = {}
-    empty_rp_files = {}
-
-    # Create minimal BP item definitions for recipe results not already defined
-    for item_id in recipe_result_ids:
-        if item_id in bp_item_ids or item_id in bp_block_ids or item_id in rp_block_ids:
             continue
-        namespace, item_name = item_id.split(':', 1)
-        item_def = {
+
+        for rkey in _RECIPE_KEYS:
+            recipe = obj.get(rkey, {})
+            result = recipe.get("result", {})
+            if isinstance(result, dict):
+                iid = result.get("item", "")
+                if iid and ":" in iid and not iid.startswith("minecraft:"):
+                    ids.add(iid)
+            elif isinstance(result, list):
+                for entry in result:
+                    iid = entry.get("item", "") if isinstance(entry, dict) else ""
+                    if iid and ":" in iid and not iid.startswith("minecraft:"):
+                        ids.add(iid)
+    return ids
+
+
+# ── Pack-level API ─────────────────────────────────────────────────────────
+
+def fix_pack(pack_basename: str, archive: "zipfile.ZipFile") -> dict | None:
+    """Return ``{"bp": {...}, "rp": {...}}`` with new / removed files, or ``None``."""
+    names = archive.namelist()
+
+    bp_ids = _collect_ids(names, archive)
+    rp_block_ids = _rp_block_ids(names, archive)
+    recipe_ids = _recipe_result_ids(names, archive)
+
+    new_bp: dict[str, bytes] = {}
+    empty_rp: dict[str, bytes] = {}
+
+    # ── 1. Generate missing BP item definitions ────────────────────────
+    for item_id in recipe_ids:
+        if item_id in bp_ids or item_id in rp_block_ids:
+            continue
+        _ns, item_name = item_id.split(":", 1)
+        skeleton = {
             "format_version": "1.16.100",
             "minecraft:item": {
                 "description": {
                     "identifier": item_id,
-                    "category": "Nature"
+                    "category": "Nature",
                 },
-                "components": {}
-            }
+                "components": {},
+            },
         }
-        safe_name = item_name.replace(':', '_')
-        new_bp_files[f"items/{namespace}_{safe_name}.json"] = json.dumps(item_def, indent=2).encode('utf-8')
+        safe = item_name.replace(":", "_")
+        new_bp[f"items/{_ns}_{safe}.json"] = _json_module.dumps(skeleton, indent=2).encode("utf-8")
 
-    # Remove obsolete old-format RP item definitions that have a modern BP counterpart
-    for name in _find_all(names, '/items/'):
+    # ── 2. Nullify obsolete RP item files backed by modern BP definitions ──
+    for path in _matching_paths(names, "/items/"):
         try:
-            d = json.loads(zip_file.read(name).decode('utf-8', errors='ignore'))
-            fv = str(d.get('format_version', ''))
-            iid = (d.get('minecraft:item') or {}).get('description', {}).get('identifier', '')
-            if fv in _OLD_RP_ITEM_VERSIONS and iid and iid in bp_item_ids:
-                # Strip pack folder prefix — output path is relative to the RP root
-                rp_path = 'items/' + name.rsplit('/items/', 1)[-1]
-                empty_rp_files[rp_path] = b'{}'
+            obj = _json_module.loads(
+                archive.read(path).decode("utf-8", errors="ignore")
+            )
         except Exception:
-            pass
+            continue
 
-    if not new_bp_files and not empty_rp_files:
+        fmt = str(obj.get("format_version", ""))
+        iid = (obj.get("minecraft:item") or {}).get("description", {}).get("identifier", "")
+        if fmt in _OBSOLETE_RP_VERSIONS and iid and iid in bp_ids:
+            rp_rel = "items/" + path.rsplit("/items/", 1)[-1]
+            empty_rp[rp_rel] = b"{}"
+
+    if not new_bp and not empty_rp:
         return None
-    return {'rp': empty_rp_files, 'bp': new_bp_files}
+
+    return {"rp": empty_rp, "bp": new_bp}

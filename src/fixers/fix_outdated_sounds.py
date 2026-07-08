@@ -1,70 +1,89 @@
 """
-Fixes any addon that ships an outdated sounds.json containing sound event
-names that were renamed or removed in Bedrock after 1.17, and entity sound
-entries that are missing the "key" expression now required for variant sounds.
+Strip outdated or renamed sound events from ``sounds.json``.
 
-Errors this silences:
+Bedrock errors silenced:
   [Sound][error] - Event name 'X' is not a valid LevelSoundEvent
   [Sound][error] - Expected "key" expression for entity with sound variants
+
+Two passes:
+
+  1. Remove known-invalid individual sound events.
+  2. Remove known-invalid entity-specific sound events.
+  3. Drop entity entries that are missing a ``"key"`` field (required in modern
+     Bedrock for variant-sound entities).
 """
 
-import json
-TARGETS = ["*.mcpack", "*.mcaddon"]
-DESCRIPTION = "Remove invalid/outdated sound event names from sounds.json"
+from __future__ import annotations
 
-_INVALID_INDIVIDUAL_EVENTS = {
+import json as _json_module
+
+TARGETS = ["*.mcpack", "*.mcaddon"]
+DESCRIPTION = "Remove invalid / outdated sound event names from sounds.json"
+
+_INVALID_INDIVIDUAL_EVENTS = frozenset({
     "item.bone_meal.use",
     "mob.armor_stand.break",
     "mob.armor_stand.hit",
     "mob.armor_stand.land",
+})
+
+_INVALID_ENTITY_EVENTS: dict[str, frozenset[str]] = {
+    "elder_guardian": frozenset({"guardian.flop"}),
+    "fox": frozenset({"sniff", "spit"}),
+    "ghast":         frozenset({"scream"}),
+    "guardian":      frozenset({"guardian.flop"}),
+    "parrot":        frozenset({"imitate.illusion_illager", "imitate.panda"}),
+    "piglin":        frozenset({"jealous"}),
 }
 
-_INVALID_ENTITY_EVENTS = {
-    "elder_guardian": {"guardian.flop"},
-    "fox":            {"sniff", "spit"},
-    "ghast":          {"scream"},
-    "guardian":       {"guardian.flop"},
-    "parrot":         {"imitate.illusion_illager", "imitate.panda"},
-    "piglin":         {"jealous"},
-}
-
-# Entities whose entry must include a "key" field in modern Bedrock.
-# If a pack ships them without "key", drop the entry and let vanilla handle it.
-_VARIANT_KEY_REQUIRED = {"cat", "chicken", "cow", "horse", "pig", "wolf"}
+_ENTITIES_REQUIRING_KEY = frozenset({"cat", "chicken", "cow", "horse", "pig", "wolf"})
 
 
-def fix(pack_name, filepath, content):
+# ── Public API ─────────────────────────────────────────────────────────────
+
+def fix(pack_name: str, filepath: str, content: bytes) -> bytes | None:
+    """Return sanitised *bytes*, or ``None`` when no change is needed."""
     if filepath != "sounds.json":
         return None
+
     try:
-        data = json.loads(content.decode("utf-8", errors="ignore"))
+        data = _json_module.loads(content.decode("utf-8", errors="ignore"))
     except Exception:
         return None
 
     changed = False
 
+    # ── 1. Individual event sounds ─────────────────────────────────────
     ind_events = data.get("individual_event_sounds", {}).get("events", {})
     for bad in list(ind_events):
         if bad in _INVALID_INDIVIDUAL_EVENTS:
             del ind_events[bad]
             changed = True
 
+    # ── 2. Entity sounds — locate the entities dict ────────────────────
     entity_sounds = data.get("entity_sounds", {})
-    # Standard sounds.json nests entity entries under "entities"; some packs omit it
-    entities_map = entity_sounds.get("entities") if isinstance(entity_sounds.get("entities"), dict) else entity_sounds
+    # Standard layout nests entities under ``"entities"``; some packs skip that.
+    entities = (
+        entity_sounds["entities"]
+        if isinstance(entity_sounds.get("entities"), dict)
+        else entity_sounds
+    )
 
-    for entity, bad_events in _INVALID_ENTITY_EVENTS.items():
-        ev = entities_map.get(entity, {}).get("events", {})
+    # ── 2a. Remove invalid per-entity events ────────────────────────────
+    for entity, bad_set in _INVALID_ENTITY_EVENTS.items():
+        ev = entities.get(entity, {}).get("events", {})
         for bad in list(ev):
-            if bad in bad_events:
+            if bad in bad_set:
                 del ev[bad]
                 changed = True
 
-    for entity in _VARIANT_KEY_REQUIRED:
-        if entity in entities_map and "key" not in entities_map[entity]:
-            del entities_map[entity]
+    # ── 2b. Drop entities that lack the required ``key`` field ─────────
+    for entity in _ENTITIES_REQUIRING_KEY:
+        if entity in entities and "key" not in entities[entity]:
+            del entities[entity]
             changed = True
 
     if not changed:
         return None
-    return json.dumps(data, indent=3).encode("utf-8")
+
+    return _json_module.dumps(data, indent=3).encode("utf-8")

@@ -1,60 +1,60 @@
 """
-Pack-level + per-file fixer: populates empty animation_controllers RP files by
-cross-referencing the entity's client file to discover which controller IDs
-are actually required.
+Populate placeholder animation-controller files by cross-referencing entity
+client files.
 
 Bedrock errors silenced:
   [Animation][error] - Required child controller.animation.[...] not found
 
-Root cause: original addon ships {} placeholder animation_controllers files.
-Bedrock can find the file but finds no controller definitions inside it.
+Root cause: addon ships ``{}`` or ``[]`` placeholder animation_controller
+files.  Bedrock finds the file but discovers no controller definitions.
 
-Algorithm:
-  fix_pack() scans all JSON files in the source pack for
-  "minecraft:client_entity".description.animations, collects every value that
-  starts with "controller.animation.", and stores the populated bytes in a
-  module-level dict keyed by the stripped RP path.
+Algorithm
+~~~~~~~~~
+:func:`fix_pack` scans every JSON file in the source pack for
+``minecraft:client_entity`` → ``description.animations``, collects every value
+whose string starts with ``controller.animation.``, then builds fully
+populated bytes for each empty ``animation_controllers`` file it finds in the
+pack.  Those bytes are cached in a module-global dict keyed by stripped RP
+path.
 
-  fix() is then called per-file by _copy_to_zip.  When the path matches a
-  pending stub it returns the populated bytes, replacing the empty placeholder
-  in-place before it is written to the merged ZIP.
-
-  Using fix() avoids the duplicate-entry problem that arises when fix_pack()
-  injects a second copy — Bedrock can read the first (empty) entry instead of
-  the injected one.
+:func:`fix` is called per-file by the merge pipeline.  When the path matches
+a pending stub it returns the populated bytes (replacing the empty file
+in-place).  Using ``fix()`` avoids the duplicate-entry problem that would arise
+if ``fix_pack`` injected the stub as a new file.
 """
 
-import json
-import re
-import logging
+from __future__ import annotations
+
+import json as _json_module
+import logging as _logging_module
+import re as _re_module
+
 TARGETS = ["*.mcpack", "*.mcaddon"]
 DESCRIPTION = "Stub out empty animation_controllers files from entity client file refs"
 
-# Populated by fix_pack(), consumed by fix().  Cleared at the start of each
-# fix_pack() call so stale data from a previous pack never leaks.
-_pending_stubs = {}  # stripped_rp_path -> bytes
+# ── Module-level buffer (set by fix_pack, consumed by fix) ───────────────
+_pending: dict[str, bytes] = {}
 
 
-def fix_pack(pack_basename, zip_file):
-    global _pending_stubs
-    _pending_stubs.clear()
+# ── Internal helpers ───────────────────────────────────────────────────────
 
-    names = zip_file.namelist()
-
-    # ── Step 1: collect controller IDs from every entity client file ──────────
-    entity_ctrls = {}  # stem (str) -> frozenset of controller ID strings
+def _collect_controller_ids(names: list[str], archive: "zipfile.ZipFile") -> dict[str, frozenset[str]]:
+    """Walk every JSON file for entity client data; return ``{stem → frozenset{ctrl_ids}}``."""
+    mapping: dict[str, frozenset[str]] = {}
 
     for name in names:
         if not name.endswith(".json"):
             continue
         try:
-            d = json.loads(zip_file.read(name).decode("utf-8", errors="ignore"))
+            obj = _json_module.loads(
+                archive.read(name).decode("utf-8", errors="ignore")
+            )
         except Exception:
             continue
-
-        if not isinstance(d, dict):
+        if not isinstance(obj, dict):
             continue
-        ce = d.get("minecraft:client_entity")
+
+        ce = obj.get("minecraft:client_entity")
         if not isinstance(ce, dict):
             continue
 
@@ -63,27 +63,39 @@ def fix_pack(pack_basename, zip_file):
         if not isinstance(animations, dict):
             continue
 
-        ctrl_ids = frozenset(
+        ids = frozenset(
             v for v in animations.values()
             if isinstance(v, str) and v.startswith("controller.animation.")
         )
-        if not ctrl_ids:
+        if not ids:
             continue
 
-        # Key 1: file stem  (e.g. "R/entity/sb_iron_golem.json" → "sb_iron_golem")
-        file_stem = re.sub(r"\.entity\.json$|\.json$", "", name.rsplit("/", 1)[-1])
-        entity_ctrls[file_stem] = entity_ctrls.get(file_stem, frozenset()) | ctrl_ids
+        # Key by file stem  (e.g. "R/entity/sb_iron_golem.json" → "sb_iron_golem")
+        stem = _re_module.sub(r"\.entity\.json$|\.json$", "", name.rsplit("/", 1)[-1])
+        mapping[stem] = mapping.get(stem, frozenset()) | ids
 
-        # Key 2: identifier-derived name  ("sb:iron_golem" → "sb_iron_golem")
-        identifier = desc.get("identifier", "") if isinstance(desc, dict) else ""
+        # Also key by identifier-derived name ("sb:iron_golem" → "sb_iron_golem")
+        identifier = desc.get("identifier", "")
         if ":" in identifier:
             id_stem = identifier.replace(":", "_")
-            entity_ctrls[id_stem] = entity_ctrls.get(id_stem, frozenset()) | ctrl_ids
+            mapping[id_stem] = mapping.get(id_stem, frozenset()) | ids
 
-    if not entity_ctrls:
-        return None
+    return mapping
 
-    # ── Step 2: find empty animation_controllers files, build stub bytes ──────
+
+# ── Pack-level API ─────────────────────────────────────────────────────────
+
+def fix_pack(pack_basename: str, archive: "zipfile.ZipFile") -> None:
+    """Scout entity files, compute stub bytes, store in module-level ``_pending``."""
+    # Clear stale data from previous pack
+    _pending.clear()
+
+    names = archive.namelist()
+    ctrl_map = _collect_controller_ids(names, archive)
+
+    if not ctrl_map:
+        return None  # no entity client references found
+
     for name in names:
         if not name.endswith(".json"):
             continue
@@ -92,55 +104,62 @@ def fix_pack(pack_basename, zip_file):
             continue
 
         try:
-            d = json.loads(zip_file.read(name).decode("utf-8", errors="ignore"))
+            obj = _json_module.loads(
+                archive.read(name).decode("utf-8", errors="ignore")
+            )
         except Exception:
             continue
 
-        # Treat empty list [] the same as empty dict {} — both are placeholder files
-        if isinstance(d, list):
-            if d:  # non-empty list is unexpected, skip
+        # Detect placeholder: empty dict, empty list, or dict with empty animation_controllers
+        if isinstance(obj, list):
+            if obj:  # non-empty list — unexpected; skip
                 continue
-            is_empty = True
             ac = {}
-        elif isinstance(d, dict):
-            ac = d.get("animation_controllers")
-            is_empty = (d == {}) or (isinstance(ac, dict) and not ac)
+        elif isinstance(obj, dict):
+            ac = obj.get("animation_controllers")
+            if obj and (not isinstance(ac, dict) or ac):
+                continue
         else:
             continue
-        if not is_empty:
-            continue
 
-        file_base = fp.rsplit("/", 1)[-1]
-        stem = re.sub(
+        stem = _re_module.sub(
             r"\.animation_controllers\.json$|_animation_controllers\.json$|\.json$",
-            "", file_base
+            "", fp.rsplit("/", 1)[-1],
         )
 
-        ctrls = entity_ctrls.get(stem)
-        if not ctrls:
+        ctrl_ids = ctrl_map.get(stem)
+        if not ctrl_ids:
             continue
 
         ac_out = {
             ctrl_id: {"initial_state": "default", "states": {"default": {}}}
-            for ctrl_id in sorted(ctrls)
+            for ctrl_id in sorted(ctrl_ids)
         }
 
-        out_bytes = json.dumps(
+        stub_bytes = _json_module.dumps(
             {"format_version": "1.10.0", "animation_controllers": ac_out},
-            indent=2
+            indent=2,
         ).encode("utf-8")
 
         # Key without R/B prefix — must match the filepath seen by fix()
         out_path = fp[2:] if fp.startswith(("R/", "B/")) else fp
-        _pending_stubs[out_path] = out_bytes
+        _pending[out_path] = stub_bytes
 
     return None  # stubs are served via fix(), not via pack-level injection
 
 
-def fix(pack_name, filepath, content):
+# ── Per-file API ───────────────────────────────────────────────────────────
+
+def fix(pack_name: str, filepath: str, content: bytes) -> bytes | None:
+    """Return populated stub *bytes* when *filepath* matches a pending entry."""
     fp = filepath.replace("\\", "/")
-    stub = _pending_stubs.get(fp)
+    stub = _pending.get(fp)
     if stub is None:
         return None
-    logging.info(f"[Fixer] {fp}: {DESCRIPTION} ({len(json.loads(stub.decode())['animation_controllers'])} controllers)")
+
+    ctrl_count = len(_json_module.loads(stub.decode())["animation_controllers"])
+    _logging_module.info(
+        "[Fixer] %s: %s (%d controller(s))",
+        fp, DESCRIPTION, ctrl_count,
+    )
     return stub
