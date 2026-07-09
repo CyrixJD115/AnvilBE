@@ -5,7 +5,7 @@ Includes themed status indicators and reusable UI components.
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QFrame, QListWidget, QApplication, QStyle
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QIcon
 from src.core.i18n import _tr
 
@@ -116,6 +116,14 @@ class DropFileList(QListWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
+
+    def sizeHint(self):
+        # Report a compact size hint (the widget's minimum height) so the
+        # parent layout treats all vertical space above it as surplus and
+        # flows it into this expanding list — the list then grows to fill
+        # the window instead of holding a fixed content-driven height.
+        h = max(self.minimumHeight(), 120)
+        return QSize(self.viewport().width() or 320, h)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():

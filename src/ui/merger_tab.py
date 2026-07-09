@@ -13,8 +13,7 @@ unchanged so the background merge worker stays fully wired.
 """
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QListWidget, QPushButton,
-    QLineEdit, QProgressBar, QLabel, QComboBox, QFrame, QScrollArea,
-    QApplication, QStyle
+    QLineEdit, QProgressBar, QLabel, QComboBox, QFrame, QScrollArea, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal, QObject
 from src.ui.widgets import AchievementIndicator, DropFileList
@@ -36,14 +35,13 @@ class MergerTab(QWidget):
     Main dashboard workspace for merging Minecraft Bedrock addon packs.
 
     Mirrors the original API so the merge worker / app controller remain
-    unchanged, while restructuring the layout into drop zones + an action
-    block + compact toggles.
+    unchanged, while restructuring the layout around the file list, output
+    config, and a Run Pipeline action block. Configuration toggles live in
+    the Settings view; drag-and-drop is handled window-wide by the overlay.
     """
 
-    # Emitted when a pack file/folder is dropped onto the main drop zone.
+    # Emitted when a pack file/folder is dropped onto the file list.
     paths_dropped = Signal(list)
-    # Emitted when a quick-toggle chip changes — host persists it.
-    option_changed = Signal(str, bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -84,41 +82,29 @@ class MergerTab(QWidget):
         self._subheading.setWordWrap(True)
         layout.addWidget(self._subheading)
 
-        # ── Hint strip (drag anywhere on the window — overlay handles it) ──
-        self._drop_hint = QWidget()
-        self._drop_hint.setStyleSheet(
-            "QWidget { background-color: #1F2D2D; "
-            "border: 2px dashed #3D6A6A; }")
-        hint_layout = QHBoxLayout(self._drop_hint)
-        hint_layout.setContentsMargins(14, 10, 14, 10)
-        hint_layout.setSpacing(8)
-        hint_layout.setAlignment(Qt.AlignCenter)
-
-        self._drop_hint_icon = QLabel()
-        self._drop_hint_icon.setFixedSize(16, 16)
-        self._drop_hint_icon.setAlignment(Qt.AlignCenter)
-        hint_layout.addWidget(self._drop_hint_icon)
-
-        self._drop_hint_text = QLabel()
-        self._drop_hint_text.setStyleSheet(
-            "QLabel { color: #5CE3E6; background-color: transparent; "
-            "border: none; font-weight: 600; }")
-        hint_layout.addWidget(self._drop_hint_text)
-        layout.addWidget(self._drop_hint)
-        self._set_drop_hint_icon()
-        # Backward-compat stub: the window-wide DropOverlay now owns drag-drop,
-        # but app.py historically connected drop_zone.paths_dropped.
+        # Drag-and-drop is handled window-wide by the DropOverlay, so the
+        # dashboard itself shows no drop box/hint. Keep a no-op stub for
+        # backward compatibility with legacy drop_zone.paths_dropped wiring.
         self.drop_zone = _NoOpDropZone()
 
         # ── Files group ───────────────────────────────────────────────
         self._files_group = QGroupBox("")
+        # Expanding vertical policy: this group absorbs extra window height
+        # so the file list grows with the window (min 160px preserved).
+        sp = self._files_group.sizePolicy()
+        sp.setVerticalPolicy(QSizePolicy.Expanding)
+        self._files_group.setSizePolicy(sp)
         files_layout = QVBoxLayout(self._files_group)
 
         self.file_list_box = DropFileList()
         self.file_list_box.setMinimumHeight(160)
         self.file_list_box.setAlternatingRowColors(False)
         self.file_list_box.setSelectionMode(QListWidget.ExtendedSelection)
-        files_layout.addWidget(self.file_list_box)
+        # The list absorbs all spare vertical space: expanding policy plus a
+        # stretch factor so it grows with the window while the buttons below
+        # keep their natural height. Minimum height (160px) is preserved.
+        self.file_list_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        files_layout.addWidget(self.file_list_box, 1)
 
         # Button row
         btn_row = QWidget()
@@ -139,7 +125,9 @@ class MergerTab(QWidget):
         btn_layout.addStretch()
 
         files_layout.addWidget(btn_row)
-        layout.addWidget(self._files_group)
+        # Stretch factor 1 → the files group grows to fill spare vertical
+        # space; the widgets below keep their natural (fixed) heights.
+        layout.addWidget(self._files_group, 1)
 
         # ── Achievement indicator ─────────────────────────────────────
         self.achievement_indicator = AchievementIndicator()
@@ -172,20 +160,6 @@ class MergerTab(QWidget):
         output_layout.addLayout(format_row)
 
         layout.addWidget(self._output_group)
-
-        # ── Compact configuration toggle chips ────────────────────────
-        self._toggles_group = QGroupBox("")
-        toggles_layout = QVBoxLayout(self._toggles_group)
-        toggles_layout.setSpacing(8)
-
-        self._chk_modpack = self._make_chip()
-        self._chk_merge_version = self._make_chip()
-        self._chk_customize = self._make_chip()
-
-        toggles_layout.addWidget(self._chk_modpack)
-        toggles_layout.addWidget(self._chk_merge_version)
-        toggles_layout.addWidget(self._chk_customize)
-        layout.addWidget(self._toggles_group)
 
         # ── Run Pipeline action block ─────────────────────────────────
         action = QFrame()
@@ -233,43 +207,16 @@ class MergerTab(QWidget):
         action_layout.addLayout(btn_merge_row)
         layout.addWidget(action)
 
-        layout.addStretch()
-
-        # ── Internal signal wiring ────────────────────────────────────
-        # The shim drop_zone keeps a paths_dropped signal for backward compat;
-        # the window-wide DropOverlay is the real drag-drop surface now.
-        self._chk_modpack.toggled.connect(lambda v: self.option_changed.emit("modpack_organization", v))
-        self._chk_merge_version.toggled.connect(lambda v: self.option_changed.emit("merge_by_version", v))
-        self._chk_customize.toggled.connect(lambda v: self.option_changed.emit("customize_pack_after_merge", v))
-
-    def _make_chip(self) -> QPushButton:
-        # Reuse QCheckBox for the chip styling defined in dashboard_theme.qss.
-        from PySide6.QtWidgets import QCheckBox
-        chip = QCheckBox()
-        chip.setProperty("class", "chip")
-        chip.setStyleSheet("color: #C6C6C6;")
-        chip.setCursor(Qt.PointingHandCursor)
-        return chip
-
-    def _set_drop_hint_icon(self):
-        """Render the built-in down-arrow icon into the drop-hint strip."""
-        app = QApplication.instance()
-        if app is None:
-            return
-        icon = app.style().standardIcon(QStyle.SP_ArrowDown)
-        self._drop_hint_icon.setPixmap(icon.pixmap(16, 16))
-
     # ──────────────────────────────────────────────────────────────────
     # i18n
     # ──────────────────────────────────────────────────────────────────
     def retranslate_ui(self):
         self._heading.setText(_tr("dashboard.heading", "Merge Pipeline"))
         self._subheading.setText(_tr("dashboard.subheading",
-            "Drop your .mcpack / .mcaddon files or pack folders below, choose an output, "
-            "and run the merge. Configuration toggles mirror your settings."))
+            "Add your .mcpack / .mcaddon files or pack folders, choose an output, "
+            "and run the merge. You can drag files anywhere on the window."))
         self._files_group.setTitle(_tr("merger.group.files", "Files"))
         self._output_group.setTitle(_tr("merger.group.output", "Output"))
-        self._toggles_group.setTitle(_tr("dashboard.group.options", "Quick Options"))
         self._btn_add.setText(_tr("merger.add_files", "Add Files"))
         self._btn_add_folder.setText(_tr("merger.add_folder", "Add Folder"))
         self._btn_remove.setText(_tr("merger.remove_selected", "Remove Selected"))
@@ -285,36 +232,18 @@ class MergerTab(QWidget):
             "mcaddon — single file with both packs (double-click to import)\n"
             "mcpack  — two separate .mcpack files (one RP, one BP)\n"
             "zip     — plain .zip archives"))
-        self._chk_modpack.setText(_tr("settings.modpack_organization",
-            "Modpack organization (group by source pack)"))
-        self._chk_merge_version.setText(_tr("settings.merge_by_version",
-            "Merge by @minecraft/server version"))
-        self._chk_customize.setText(_tr("settings.customize_before_merge",
-            "Show pack customization dialog before merge"))
         # Inline tooltips (micro-documentation)
-        self._chk_modpack.setToolTip(_tr("tip.modpack_org",
-            "Prefixes every merged file with its source pack name so you can "
-            "trace where each asset originated."))
-        self._chk_merge_version.setToolTip(_tr("tip.merge_by_version",
-            "Splits output into one BP/RP pair per @minecraft/server API "
-            "version, so incompatible script packs stay separate."))
-        self._chk_customize.setToolTip(_tr("tip.customize",
-            "Opens a dialog before the merge to set the pack name, author, "
-            "description, and icon."))
         self._btn_check_packs.setToolTip(_tr("tip.check_packs",
             "Scans loaded packs and groups them by their Script API version, "
             "warning you about cross-version incompatibilities."))
-        self._btn_start.setText(_tr("dashboard.run_pipeline", "Run Pipeline"))
+        self._btn_start.setText(_tr("dashboard.run_pipeline", "Merge"))
         self._btn_start.setToolTip(_tr("tip.run_pipeline",
             "Validates packs, merges JSON, resolves identifier conflicts, "
             "and packages the output in your chosen format."))
         self._btn_cancel.setText(_tr("common.cancel", "Cancel"))
-        self._action_title.setText(_tr("dashboard.action_title", "Run Pipeline"))
+        self._action_title.setText(_tr("dashboard.action_title", "Merge"))
         self._action_subtitle.setText(_tr("dashboard.action_subtitle",
             "Validates, merges, and packages all loaded packs."))
-        self._drop_hint_text.setText(_tr("dashboard.drop_hint_strip",
-            "Drag .mcpack / .mcaddon / folders anywhere — or click Add Files"))
-        self._set_drop_hint_icon()
         self.achievement_indicator.retranslate_ui()
 
     # ──────────────────────────────────────────────────────────────────
@@ -356,31 +285,6 @@ class MergerTab(QWidget):
     @property
     def format_combo(self):
         return self._format_combo
-
-    # ── Quick-option chips (new) ──────────────────────────────────────
-    @property
-    def chk_modpack(self):
-        return self._chk_modpack
-
-    @property
-    def chk_merge_version(self):
-        return self._chk_merge_version
-
-    @property
-    def chk_customize(self):
-        return self._chk_customize
-
-    def set_option(self, name: str, value: bool):
-        """Set a quick-option chip without re-emitting option_changed."""
-        chip = {
-            "modpack_organization": self._chk_modpack,
-            "merge_by_version": self._chk_merge_version,
-            "customize_pack_after_merge": self._chk_customize,
-        }.get(name)
-        if chip is not None:
-            chip.blockSignals(True)
-            chip.setChecked(bool(value))
-            chip.blockSignals(False)
 
     # ── Format helpers ────────────────────────────────────────────────
     def get_output_format(self):
@@ -434,6 +338,3 @@ class MergerTab(QWidget):
         self._btn_cancel.setEnabled(running)
         self._entry_output_dir.setEnabled(not running)
         self._format_combo.setEnabled(not running)
-        self._chk_modpack.setEnabled(not running)
-        self._chk_merge_version.setEnabled(not running)
-        self._chk_customize.setEnabled(not running)

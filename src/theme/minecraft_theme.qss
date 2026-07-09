@@ -7,7 +7,6 @@ QMainWindow {
 }
 
 QWidget {
-    background-color: #1A1A1A;
     color: #C6C6C6;
     font-family: 'DepartureMono Nerd Font Mono', 'DepartureMono Nerd Font', 'Segoe UI', 'Microsoft YaHei UI', monospace;
     font-size: 10pt;
@@ -542,6 +541,7 @@ QSlider::handle:horizontal:hover {
 /* ===== Label ===== */
 QLabel {
     color: #C6C6C6;
+    background-color: transparent;
 }
 
 /* ===== Tool Tip ===== */

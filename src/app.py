@@ -174,11 +174,6 @@ class AutoBEWindow(QMainWindow):
         # Apply saved output format
         self.merger_tab.set_output_format(self._output_format)
 
-        # Mirror merge options onto the dashboard quick-option chips
-        self.merger_tab.set_option("modpack_organization", self.modpack_organization)
-        self.merger_tab.set_option("merge_by_version", self.merge_by_version)
-        self.merger_tab.set_option("customize_pack_after_merge", self.customize_pack_after_merge)
-
         # Restore last used source list (input memory) if present and valid.
         # Reject system/generic directories (e.g. /tmp) so they never pollute
         # the dashboard — only real user-selected pack sources are remembered.
@@ -334,7 +329,6 @@ class AutoBEWindow(QMainWindow):
         self.merger_tab.btn_cancel.clicked.connect(self._cancel_merge)
         self.merger_tab.file_list_box.files_dropped.connect(self._on_files_dropped)
         self.merger_tab.paths_dropped.connect(self._on_files_dropped)
-        self.merger_tab.option_changed.connect(self._on_dashboard_option_changed)
         # Persist input memory as the user edits paths.
         self.merger_tab.entry_output_dir.textChanged.connect(self._on_output_dir_changed)
         self.merger_tab.entry_output_dir.paths_dropped.connect(self._on_files_dropped)
@@ -379,26 +373,6 @@ class AutoBEWindow(QMainWindow):
         widget = widget_map.get(view_id)
         if widget is not None:
             self.content_stack.setCurrentWidget(widget)
-
-    def _on_dashboard_option_changed(self, name: str, value: bool):
-        """A quick-option chip changed — apply + persist it."""
-        if name == "modpack_organization":
-            self.modpack_organization = value
-        elif name == "merge_by_version":
-            self.merge_by_version = value
-        elif name == "customize_pack_after_merge":
-            self.customize_pack_after_merge = value
-        # Mirror into the settings tab so both surfaces stay consistent.
-        try:
-            if name == "modpack_organization":
-                self.settings_tab.chk_modpack.setChecked(value)
-            elif name == "merge_by_version":
-                self.settings_tab.chk_merge_version.setChecked(value)
-            elif name == "customize_pack_after_merge":
-                self.settings_tab.chk_customize.setChecked(value)
-        except Exception:
-            pass
-        self._save_settings()
 
     def _on_output_dir_changed(self, _text: str):
         """Persist the output directory as the user edits it (input memory)."""
@@ -795,10 +769,6 @@ class AutoBEWindow(QMainWindow):
             self.merger_tab.entry_output_dir.blockSignals(True)
             self.merger_tab.entry_output_dir.setText(out_dir)
             self.merger_tab.entry_output_dir.blockSignals(False)
-        # Mirror merge options onto the dashboard quick-option chips.
-        self.merger_tab.set_option("modpack_organization", self.modpack_organization)
-        self.merger_tab.set_option("merge_by_version", self.merge_by_version)
-        self.merger_tab.set_option("customize_pack_after_merge", self.customize_pack_after_merge)
         self._settings = new_settings
 
     # ──────────────────────────────────────────────────────────────────
