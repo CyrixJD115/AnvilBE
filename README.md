@@ -59,7 +59,10 @@ Or right-click the app → **Open** → click **Open**. Only needs to be done on
 
 ## Acknowledgements
 
-Inspired by **AutoBE** by Frosty. I took the source code and completely restructured it, better QOL, loads of bug fixes, and opened it up to the community. Thanks to everyone helping build this.
+Anvil-MC was inspired by the concept of Minecraft Bedrock addon management tools. 
+The project aims to provide a modern, open-source addon merging experience with improved compatibility, conflict handling, and user experience.
+
+Thanks to everyone contributing to the project.
 
 ## License
 
